@@ -301,6 +301,11 @@ interface IWindowManager
     boolean hasNavigationBar();
 
     /**
+    * Device needs a software navigation bar (because it has no hardware keys).
+    */
+    boolean needsNavigationBar();
+
+    /**
      * Simulate a hardware menu key
      */
     boolean hasPermanentMenuKey();

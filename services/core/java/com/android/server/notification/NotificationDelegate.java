@@ -35,4 +35,5 @@ public interface NotificationDelegate {
             NotificationVisibility[] newlyVisibleKeys,
             NotificationVisibility[] noLongerVisibleKeys);
     void onNotificationExpansionChanged(String key, boolean userAction, boolean expanded);
+    void prepareForPossibleShutdown();
 }
