@@ -967,7 +967,6 @@ public class StatusBarManagerService extends IStatusBarService.Stub {
         enforceStatusBarService();
         long identity = Binder.clearCallingIdentity();
         try {
-            mNotificationDelegate.prepareForPossibleShutdown();
             mHandler.post(() -> {
                 // ShutdownThread displays UI, so give it a UI context.
                 if (safeMode) {
