@@ -61,7 +61,6 @@ public class LocationTile extends QSTileImpl<BooleanState> {
     private final Callback mCallback = new Callback();
     private int mLastState;
     private MetricsLogger mMetricsLogger;
-    private int mLastState;
 
     public LocationTile(QSHost host) {
         super(host);

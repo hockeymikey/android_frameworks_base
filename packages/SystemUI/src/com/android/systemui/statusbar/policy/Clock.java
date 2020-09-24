@@ -43,10 +43,12 @@ import android.view.Display;
 import android.view.View;
 import android.widget.TextView;
 
+import com.android.settingslib.Utils;
 import com.android.systemui.DemoMode;
 import com.android.systemui.Dependency;
 import com.android.systemui.FontSizeUtils;
 import com.android.systemui.R;
+import com.android.systemui.broadcast.BroadcastDispatcher;
 import com.android.systemui.SysUiServiceProvider;
 import com.android.systemui.statusbar.CommandQueue;
 import com.android.systemui.statusbar.policy.ConfigurationController.ConfigurationListener;
@@ -127,6 +129,19 @@ public class Clock extends TextView implements DemoMode, Tunable, CommandQueue.C
     private String mDateFormat = DATE_FORMAT_DEFAULT;
     private int mDateStyle = DATE_STYLE_REGULAR;
     private boolean mDateSizeSmall = false;
+
+    /**
+     * Whether we should use colors that adapt based on wallpaper/the scrim behind quick settings
+     * for text.
+     */
+    private boolean mUseWallpaperTextColor;
+
+    /**
+     * Color to be set on this {@link TextView}, when wallpaperTextColor is <b>not</b> utilized.
+     */
+    private int mNonAdaptedColor;
+
+    private final BroadcastDispatcher mBroadcastDispatcher;
 
     public Clock(Context context) {
         this(context, null);
