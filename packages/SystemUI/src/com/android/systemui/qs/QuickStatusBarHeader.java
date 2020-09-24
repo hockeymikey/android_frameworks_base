@@ -50,7 +50,7 @@ import com.android.systemui.statusbar.policy.DarkIconDispatcher.DarkReceiver;
 import com.android.systemui.tuner.TunerService;
 
 
-public class QuickStatusBarHeader extends FrameLayout implements StatusBarHeaderMachine.IStatusBarHeaderMachineObserver {
+public class QuickStatusBarHeader extends FrameLayout implements StatusBarHeaderMachine.IStatusBarHeaderMachineObserver, TunerService.Tunable {
     private static final String TAG = "QuickStatusBarHeader";
 
     private ActivityStarter mActivityStarter;

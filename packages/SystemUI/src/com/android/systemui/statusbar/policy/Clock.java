@@ -63,7 +63,7 @@ import java.util.TimeZone;
 /**
  * Digital clock for the status bar.
  */
-public class Clock extends TextView implements DemoMode, CommandQueue.Callbacks,
+public class Clock extends TextView implements DemoMode, Tunable, CommandQueue.Callbacks,
         DarkReceiver, ConfigurationListener {
 
     public static final String CLOCK_SECONDS = "clock_seconds";
@@ -284,7 +284,47 @@ public class Clock extends TextView implements DemoMode, CommandQueue.Callbacks,
     public void onDarkChanged(Rect area, float darkIntensity, int tint) {
         setTextColor(DarkIconDispatcher.getTint(area, this, tint));
     }
+    /**
+     * Sets whether the clock uses the wallpaperTextColor. If we're not using it, we'll revert back
+     * to dark-mode-based/tinted colors.
+     *
+     * @param shouldUseWallpaperTextColor whether we should use wallpaperTextColor for text color
+     */
+    public void useWallpaperTextColor(boolean shouldUseWallpaperTextColor) {
+        if (shouldUseWallpaperTextColor == mUseWallpaperTextColor) {
+            return;
+        }
+        mUseWallpaperTextColor = shouldUseWallpaperTextColor;
 
+        if (mUseWallpaperTextColor) {
+            setTextColor(Utils.getColorAttr(mContext, R.attr.wallpaperTextColor));
+        } else {
+            setTextColor(mNonAdaptedColor);
+        }
+    }
+
+    private void updateShowSeconds() {
+        if (mShowSeconds) {
+            // Wait until we have a display to start trying to show seconds.
+            if (mSecondsHandler == null && getDisplay() != null) {
+                mSecondsHandler = new Handler();
+                if (getDisplay().getState() == Display.STATE_ON) {
+                    mSecondsHandler.postAtTime(mSecondTick,
+                            SystemClock.uptimeMillis() / 1000 * 1000 + 1000);
+                }
+                IntentFilter filter = new IntentFilter(Intent.ACTION_SCREEN_OFF);
+                filter.addAction(Intent.ACTION_SCREEN_ON);
+                mBroadcastDispatcher.registerReceiver(mScreenReceiver, filter);
+            }
+        } else {
+            if (mSecondsHandler != null) {
+                mBroadcastDispatcher.unregisterReceiver(mScreenReceiver);
+                mSecondsHandler.removeCallbacks(mSecondTick);
+                mSecondsHandler = null;
+                updateClock();
+            }
+        }
+    }
     @Override
     public void onDensityOrFontScaleChanged() {
         FontSizeUtils.updateFontSize(this, R.dimen.status_bar_clock_size);

@@ -21,6 +21,7 @@ import android.app.WallpaperManager;
 import android.content.Context;
 import android.graphics.Color;
 import android.graphics.Point;
+import android.os.PowerManager;
 import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;

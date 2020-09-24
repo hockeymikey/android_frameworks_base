@@ -307,10 +307,11 @@ public class BrightnessController implements ToggleSlider.Listener {
                 public void onClick(View v) {
                     Settings.System.putIntForUser(mContext.getContentResolver(),
                             Settings.System.SCREEN_BRIGHTNESS_MODE, mAutomatic ? Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL :
-                            Settings.System.SCREEN_BRIGHTNESS_MODE_AUTOMATIC,
-                        UserHandle.USER_CURRENT);
-            }
-        });
+                                    Settings.System.SCREEN_BRIGHTNESS_MODE_AUTOMATIC,
+                            UserHandle.USER_CURRENT);
+                }
+            });
+        }
     }
 
     public void addStateChangedCallback(BrightnessStateChangeCallback cb) {

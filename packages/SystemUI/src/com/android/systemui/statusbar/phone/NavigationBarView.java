@@ -856,15 +856,6 @@ public class NavigationBarView extends FrameLayout implements PluginListener<Nav
     }
 
     public void updateDpadKeys() {
-        if (mShowDpadArrowKeys) { // overrides IME button
-            final boolean showingIme = ((mNavigationIconHints
-                    & StatusBarManager.NAVIGATION_HINT_BACK_ALT) != 0);
-
-            getDpadView().setVisibility(showingIme ? View.VISIBLE : View.INVISIBLE);
-        }
-    }
-
-    public void updateDpadKeys() {
         final int visibility = mShowDpadArrowKeys && (mNavigationIconHints
                 & StatusBarManager.NAVIGATION_HINT_BACK_ALT) != 0 ? View.VISIBLE : View.GONE;
 
