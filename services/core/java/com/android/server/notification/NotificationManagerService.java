@@ -375,7 +375,6 @@ public class NotificationManagerService extends SystemService {
     private long mLastOverRateLogTime;
     private float mMaxPackageEnqueueRate = DEFAULT_MAX_NOTIFICATION_ENQUEUE_RATE;
 
-    private NotificationHistoryManager mHistoryManager;
     private SnoozeHelper mSnoozeHelper;
     private GroupHelper mGroupHelper;
     private boolean mIsTelevision;
@@ -616,11 +615,6 @@ public class NotificationManagerService extends SystemService {
 
     @VisibleForTesting
     final NotificationDelegate mNotificationDelegate = new NotificationDelegate() {
-
-        @Override
-        public void prepareForPossibleShutdown() {
-            mHistoryManager.triggerWriteToDisk();
-        }
 
         @Override
         public void onSetDisabled(int status) {
