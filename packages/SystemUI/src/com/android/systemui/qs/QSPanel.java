@@ -79,11 +79,14 @@ public class QSPanel extends LinearLayout implements Tunable, Callback, Brightne
 
     public static final String QS_SHOW_BRIGHTNESS_SLIDER =
             "lineagesecure:" + LineageSettings.Secure.QS_SHOW_BRIGHTNESS_SLIDER;
+    public static final String QS_SHOW_AUTO_BRIGHTNESS =
+            "lineagesecure:" + LineageSettings.Secure.QS_SHOW_AUTO_BRIGHTNESS;
     private static final String TAG = "QSPanel";
 
     protected final Context mContext;
     protected final ArrayList<TileRecord> mRecords = new ArrayList<TileRecord>();
     protected final View mBrightnessView;
+    protected final ImageView mAutoBrightnessView;
     protected final ImageView mBrightnessIcon;
     private final H mHandler = new H();
     private final View mPageIndicator;
