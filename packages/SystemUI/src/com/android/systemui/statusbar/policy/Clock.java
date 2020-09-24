@@ -51,6 +51,8 @@ import com.android.systemui.SysUiServiceProvider;
 import com.android.systemui.statusbar.CommandQueue;
 import com.android.systemui.statusbar.policy.ConfigurationController.ConfigurationListener;
 import com.android.systemui.statusbar.policy.DarkIconDispatcher.DarkReceiver;
+import com.android.systemui.tuner.TunerService;
+import com.android.systemui.tuner.TunerService.Tunable;
 
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
@@ -68,7 +70,6 @@ public class Clock extends TextView implements DemoMode, CommandQueue.Callbacks,
     public static final String CLOCK_STYLE = "lineagesystem:status_bar_am_pm";
 
     private boolean mClockVisibleByPolicy = true;
-    private boolean mClockVisibleByUser = getVisibility() == View.VISIBLE;
 
     private boolean mAttached;
     private Calendar mCalendar;

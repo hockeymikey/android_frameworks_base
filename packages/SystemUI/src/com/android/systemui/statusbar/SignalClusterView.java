@@ -65,6 +65,9 @@ import static android.telephony.TelephonyManager.PHONE_TYPE_GSM;
 import static com.android.internal.telephony.PhoneConstants.LTE_ON_CDMA_TRUE;
 import static com.android.internal.telephony.PhoneConstants.LTE_ON_CDMA_UNKNOWN;
 
+import org.lineageos.internal.util.TelephonyExtUtils;
+import org.lineageos.internal.util.TelephonyExtUtils.ProvisioningChangedListener;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;

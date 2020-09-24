@@ -62,7 +62,7 @@ public class GlobalActionsImpl implements GlobalActions {
     }
 
     @Override
-    public void showShutdownUi(boolean isReboot, String reason) {
+    public void showShutdownUi(boolean isReboot, String reason, boolean rebootCustom) {
         GradientDrawable background = new GradientDrawable(mContext);
         background.setAlpha((int) (SHUTDOWN_SCRIM_ALPHA * 255));
 

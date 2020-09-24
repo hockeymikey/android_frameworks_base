@@ -560,7 +560,6 @@ public class StatusBar extends SystemUI implements DemoMode,
     int mMaxAllowedKeyguardNotifications;
 
     boolean mExpandedVisible;
-    private int mStatusBarHeaderHeight;
 
     ActivityManager mAm;
     private ArrayList<String> mBlacklist = new ArrayList<String>();
@@ -636,8 +635,6 @@ public class StatusBar extends SystemUI implements DemoMode,
     private ScreenPinningRequest mScreenPinningRequest;
 
     private int mBatterySaverColor;
-
-    private UiModeManager mUiModeManager;
 
     private UiModeManager mUiModeManager;
 
@@ -3462,6 +3459,37 @@ public class StatusBar extends SystemUI implements DemoMode,
         return themeInfo != null && themeInfo.isEnabled();
     }
 
+    public boolean isUsingDarkOrBlackTheme() {
+        OverlayInfo systemuiThemeInfoDark = null;
+        OverlayInfo systemuiThemeInfoBlack = null;
+        try {
+            systemuiThemeInfoDark = mOverlayManager.getOverlayInfo("org.lineageos.overlay.dark",
+                    mCurrentUserId);
+        } catch (RemoteException e) {
+            e.printStackTrace();
+        }
+        try {
+            systemuiThemeInfoBlack = mOverlayManager.getOverlayInfo("org.lineageos.overlay.black",
+                    mCurrentUserId);
+        } catch (RemoteException e) {
+            e.printStackTrace();
+        }
+        return (systemuiThemeInfoDark != null && systemuiThemeInfoDark.isEnabled()) ||
+                (systemuiThemeInfoBlack != null && systemuiThemeInfoBlack.isEnabled());
+    }
+
+    private boolean isLiveDisplayNightModeOn() {
+        // SystemUI is initialized before LiveDisplay, so the service may not
+        // be ready when this is called the first time
+        LiveDisplayManager manager = LiveDisplayManager.getInstance(mContext);
+        try {
+            return manager.isNightModeEnabled();
+        } catch (NullPointerException e) {
+            Log.w(TAG, e.getMessage());
+        }
+        return false;
+    }
+
     @Nullable
     public View getAmbientIndicationContainer() {
         return mAmbientIndicationContainer;
@@ -3779,96 +3807,6 @@ public class StatusBar extends SystemUI implements DemoMode,
             WindowManagerGlobal.getInstance().trimMemory(ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN);
         }
         NotificationPanelView.recycle();
-    }
-
-    private void adjustBrightness(int x) {
-        mBrightnessChanged = true;
-        float raw = ((float) x) / mScreenWidth;
-
-        // Add a padding to the brightness control on both sides to
-        // make it easier to reach min/max brightness
-        float padded = Math.min(1.0f - BRIGHTNESS_CONTROL_PADDING,
-                Math.max(BRIGHTNESS_CONTROL_PADDING, raw));
-        float value = (padded - BRIGHTNESS_CONTROL_PADDING) /
-                (1 - (2.0f * BRIGHTNESS_CONTROL_PADDING));
-        try {
-            IPowerManager power = IPowerManager.Stub.asInterface(
-                    ServiceManager.getService("power"));
-            if (power != null) {
-                if (mAutomaticBrightness) {
-                    float adj = (2 * value) - 1;
-                    adj = Math.max(adj, -1);
-                    adj = Math.min(adj, 1);
-                    final float val = adj;
-                    power.setTemporaryScreenAutoBrightnessAdjustmentSettingOverride(val);
-                    AsyncTask.execute(new Runnable() {
-                        public void run() {
-                            Settings.System.putFloatForUser(mContext.getContentResolver(),
-                                    Settings.System.SCREEN_AUTO_BRIGHTNESS_ADJ, val,
-                                    UserHandle.USER_CURRENT);
-                        }
-                    });
-                } else {
-                    int newBrightness = mMinBrightness + (int) Math.round(value *
-                            (android.os.PowerManager.BRIGHTNESS_ON - mMinBrightness));
-                    newBrightness = Math.min(newBrightness, android.os.PowerManager.BRIGHTNESS_ON);
-                    newBrightness = Math.max(newBrightness, mMinBrightness);
-                    final int val = newBrightness;
-                    power.setTemporaryScreenBrightnessSettingOverride(val);
-                    AsyncTask.execute(new Runnable() {
-                        @Override
-                        public void run() {
-                            Settings.System.putIntForUser(mContext.getContentResolver(),
-                                    Settings.System.SCREEN_BRIGHTNESS, val,
-                                    UserHandle.USER_CURRENT);
-                        }
-                    });
-                }
-            }
-        } catch (RemoteException e) {
-            Log.w(TAG, "Setting Brightness failed: " + e);
-        }
-    }
-
-    private void brightnessControl(MotionEvent event) {
-        final int action = event.getAction();
-        final int x = (int) event.getRawX();
-        final int y = (int) event.getRawY();
-        if (action == MotionEvent.ACTION_DOWN) {
-            if (y < mStatusBarHeaderHeight) {
-                mLinger = 0;
-                mInitialTouchX = x;
-                mInitialTouchY = y;
-                mJustPeeked = true;
-                mHandler.removeCallbacks(mLongPressBrightnessChange);
-                mHandler.postDelayed(mLongPressBrightnessChange,
-                        BRIGHTNESS_CONTROL_LONG_PRESS_TIMEOUT);
-            }
-        } else if (action == MotionEvent.ACTION_MOVE) {
-            if (y < mStatusBarHeaderHeight && mJustPeeked) {
-                if (mLinger > BRIGHTNESS_CONTROL_LINGER_THRESHOLD) {
-                    adjustBrightness(x);
-                } else {
-                    final int xDiff = Math.abs(x - mInitialTouchX);
-                    final int yDiff = Math.abs(y - mInitialTouchY);
-                    final int touchSlop = ViewConfiguration.get(mContext).getScaledTouchSlop();
-                    if (xDiff > yDiff) {
-                        mLinger++;
-                    }
-                    if (xDiff > touchSlop || yDiff > touchSlop) {
-                        mHandler.removeCallbacks(mLongPressBrightnessChange);
-                    }
-                }
-            } else {
-                if (y > mStatusBarHeaderHeight) {
-                    mJustPeeked = false;
-                }
-                mHandler.removeCallbacks(mLongPressBrightnessChange);
-            }
-        } else if (action == MotionEvent.ACTION_UP
-                || action == MotionEvent.ACTION_CANCEL) {
-            mHandler.removeCallbacks(mLongPressBrightnessChange);
-        }
     }
 
     private void adjustBrightness(int x) {
