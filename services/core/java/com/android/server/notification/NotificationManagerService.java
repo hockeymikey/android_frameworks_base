@@ -5164,11 +5164,6 @@ public class NotificationManagerService extends SystemService {
                 mLineageNotificationLights.isForcedOn(nr.sbn.getNotification()) : false;
     }
 
-    private boolean isLedForcedOn(NotificationRecord nr) {
-        return nr != null ?
-                mLineageNotificationLights.isForcedOn(nr.sbn.getNotification()) : false;
-    }
-
     @GuardedBy("mNotificationLock")
     @NonNull List<NotificationRecord> findGroupNotificationsLocked(String pkg,
             String groupKey, int userId) {

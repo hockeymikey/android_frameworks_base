@@ -666,6 +666,9 @@ public class PhoneWindowManager implements WindowManagerPolicy {
 
     boolean mVolumeAnswerCall;
 
+    boolean mKillAppLongpressBack;
+    int mBackKillTimeout;
+
     int mPointerLocationMode = 0; // guarded by mLock
 
     // The last window we were told about in focusChanged.
@@ -993,6 +996,8 @@ public class PhoneWindowManager implements WindowManagerPolicy {
     private HardkeyActionHandler mKeyHandler;
 
     private boolean mHasPermanentMenuKey;
+
+    private LineageHardwareManager mLineageHardware;
 
     private boolean mClearedBecauseOfForceShow;
     private boolean mTopWindowIsKeyguard;
@@ -2170,6 +2175,21 @@ public class PhoneWindowManager implements WindowManagerPolicy {
 
     private final ScreenshotRunnable mScreenshotRunnable = new ScreenshotRunnable();
 
+    Runnable mBackLongPress = new Runnable() {
+        public void run() {
+            if (unpinActivity(false)) {
+                return;
+            }
+
+            if (ActionUtils.killForegroundApp(mContext, mCurrentUserId)) {
+                performHapticFeedbackLw(null, HapticFeedbackConstants.LONG_PRESS, false);
+                Toast.makeText(mContext,
+                        org.lineageos.platform.internal.R.string.app_killed_message,
+                        Toast.LENGTH_SHORT).show();
+            }
+        }
+    };
+
     private class ScreenrecordRunnable implements Runnable {
         private int mMode = SCREEN_RECORD_LOW_QUALITY;
 
@@ -2767,24 +2787,6 @@ public class PhoneWindowManager implements WindowManagerPolicy {
             }
         }
         if (DEBUG) Slog.d(TAG, "" + mDeviceKeyHandlers.size() + " device key handlers loaded");
-
-        // Register for torch off events
-        BroadcastReceiver torchReceiver = new BroadcastReceiver() {
-            @Override
-            public void onReceive(Context context, Intent intent) {
-                mTorchOffPendingIntent = null;
-                if (mTorchEnabled) {
-                    mHandler.removeMessages(MSG_TOGGLE_TORCH);
-                    Message msg = mHandler.obtainMessage(MSG_TOGGLE_TORCH);
-                    msg.setAsynchronous(true);
-                    msg.sendToTarget();
-                }
-            }
-        };
-        filter = new IntentFilter();
-        filter.addAction(ACTION_TORCH_OFF);
-        context.registerReceiver(torchReceiver, filter);
-    }
 
         // Register for torch off events
         BroadcastReceiver torchReceiver = new BroadcastReceiver() {
@@ -4300,6 +4302,11 @@ public class PhoneWindowManager implements WindowManagerPolicy {
         if (mPendingCapsLockToggle && !KeyEvent.isMetaKey(keyCode) && !KeyEvent.isAltKey(keyCode)) {
             mPendingCapsLockToggle = false;
         }
+
+        if (keyCode == KeyEvent.KEYCODE_BACK && !down) {
+            mHandler.removeCallbacks(mBackLongPress);
+        }
+
         // First we always handle the home key here, so applications
         // can never break it, although if keyguard is on, we do let
         // it handle it, because that gives us the correct 5 second
@@ -9824,7 +9831,10 @@ public class PhoneWindowManager implements WindowManagerPolicy {
     // overridden by qemu.hw.mainkeys in the emulator.
     @Override
     public boolean hasNavigationBar() {
-        return mNavbarVisible;
+        return mHasNavigationBar || mDevForceNavbar == 1;
+    }
+    public boolean needsNavigationBar() {
+        return mHasNavigationBar;
     }
 
     /*

@@ -187,6 +187,8 @@ import static com.android.server.wm.AppTransition.TRANSIT_TASK_TO_FRONT;
 import static org.xmlpull.v1.XmlPullParser.END_DOCUMENT;
 import static org.xmlpull.v1.XmlPullParser.START_TAG;
 
+import org.lineageos.internal.applications.LineageActivityManager;
+
 import android.Manifest;
 import android.Manifest.permission;
 import android.annotation.NonNull;

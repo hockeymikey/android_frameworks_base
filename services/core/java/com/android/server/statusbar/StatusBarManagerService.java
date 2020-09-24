@@ -963,6 +963,31 @@ public class StatusBarManagerService extends IStatusBarService.Stub {
      * Allows the status bar to reboot the device.
      */
     @Override
+    public void reboot(boolean safeMode) {
+        enforceStatusBarService();
+        long identity = Binder.clearCallingIdentity();
+        try {
+            mNotificationDelegate.prepareForPossibleShutdown();
+            mHandler.post(() -> {
+                // ShutdownThread displays UI, so give it a UI context.
+                if (safeMode) {
+                    ShutdownThread.rebootSafeMode(getUiContext(), true);
+                } else {
+                    ShutdownThread.reboot(getUiContext(),
+                            PowerManager.SHUTDOWN_USER_REQUESTED, false);
+                }
+            });
+        } finally {
+            Binder.restoreCallingIdentity(identity);
+        }
+    }
+
+//TODO
+// Combine to one
+    /**
+     * Allows the status bar to reboot the device.
+     */
+    @Override
     public void reboot(boolean safeMode, String reason) {
         enforceStatusBarService();
         long identity = Binder.clearCallingIdentity();
