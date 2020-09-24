@@ -3521,8 +3521,8 @@ public class PackageManagerService extends IPackageManager.Stub
         final ResolveInfo resolveInfo = resolveIntent(intent, null,
                 MATCH_SYSTEM_ONLY | MATCH_DIRECT_BOOT_AWARE | MATCH_DIRECT_BOOT_UNAWARE,
                 UserHandle.USER_SYSTEM);
-        if (resolveInfo == null ||
-                mResolveActivity.name.equals(resolveInfo.getComponentInfo().name)) {
+        if (resolveInfo == null || mResolveActivity == null || mResolveActivity.name == null || resolveInfo.getComponentInfo() == null
+                || resolveInfo.getComponentInfo().name == null || mResolveActivity.name.equals(resolveInfo.getComponentInfo().name)) {
             throw new RuntimeException("There must be exactly one uninstaller; found "
                     + resolveInfo);
         }
