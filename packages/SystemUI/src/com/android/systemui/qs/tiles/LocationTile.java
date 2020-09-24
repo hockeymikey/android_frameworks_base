@@ -68,7 +68,6 @@ public class LocationTile extends QSTileImpl<BooleanState> {
         mKeyguard = Dependency.get(KeyguardMonitor.class);
         mDetailAdapter = (LocationDetailAdapter) createDetailAdapter();
         mMetricsLogger = new MetricsLogger();
-        mDetailAdapter = (LocationDetailAdapter) createDetailAdapter();
     }
 
     @Override

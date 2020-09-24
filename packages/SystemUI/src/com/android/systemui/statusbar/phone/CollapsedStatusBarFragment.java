@@ -216,8 +216,8 @@ public class CollapsedStatusBarFragment extends Fragment implements CommandQueue
         mSystemIconArea = mStatusBar.findViewById(R.id.system_icon_area);
         mSignalClusterView = mStatusBar.findViewById(R.id.signal_cluster);
         mClockDefault = (Clock) mStatusBar.findViewById(R.id.clock);
-        mLeftClock = mStatusBar.findViewById(R.id.left_clock);
-        mClockCentered = (Clock) mStatusBar.findViewById(R.id.center_clock);
+        mLeftClock = mStatusBar.findViewById(R.id.clock_left);
+        mClockCentered = (Clock) mStatusBar.findViewById(R.id.clock_center);
         mCenterClockLayout = mStatusBar.findViewById(R.id.center_clock_layout);
         Dependency.get(DarkIconDispatcher.class).addDarkReceiver(mSignalClusterView);
         mCustomCarrierLabel = mStatusBar.findViewById(R.id.statusbar_carrier_text);

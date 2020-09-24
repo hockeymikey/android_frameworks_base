@@ -48,7 +48,6 @@ import com.android.systemui.DemoMode;
 import com.android.systemui.Dependency;
 import com.android.systemui.FontSizeUtils;
 import com.android.systemui.R;
-import com.android.systemui.broadcast.BroadcastDispatcher;
 import com.android.systemui.SysUiServiceProvider;
 import com.android.systemui.statusbar.CommandQueue;
 import com.android.systemui.statusbar.policy.ConfigurationController.ConfigurationListener;
@@ -61,6 +60,8 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.Locale;
 import java.util.TimeZone;
+
+//import com.android.systemui.broadcast.BroadcastDispatcher;
 
 /**
  * Digital clock for the status bar.
@@ -141,7 +142,7 @@ public class Clock extends TextView implements DemoMode, Tunable, CommandQueue.C
      */
     private int mNonAdaptedColor;
 
-    private final BroadcastDispatcher mBroadcastDispatcher;
+    //private final BroadcastDispatcher mBroadcastDispatcher;
 
     public Clock(Context context) {
         this(context, null);
@@ -329,11 +330,11 @@ public class Clock extends TextView implements DemoMode, Tunable, CommandQueue.C
                 }
                 IntentFilter filter = new IntentFilter(Intent.ACTION_SCREEN_OFF);
                 filter.addAction(Intent.ACTION_SCREEN_ON);
-                mBroadcastDispatcher.registerReceiver(mScreenReceiver, filter);
+                //mBroadcastDispatcher.registerReceiver(mScreenReceiver, filter);
             }
         } else {
             if (mSecondsHandler != null) {
-                mBroadcastDispatcher.unregisterReceiver(mScreenReceiver);
+                //mBroadcastDispatcher.unregisterReceiver(mScreenReceiver);
                 mSecondsHandler.removeCallbacks(mSecondTick);
                 mSecondsHandler = null;
                 updateClock();
