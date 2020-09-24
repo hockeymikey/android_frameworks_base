@@ -25,6 +25,8 @@
     <!-- Usb drive persistent notification -->
     <java-symbol type="bool" name="config_persistUsbDriveNotification" />
 
+    <java-symbol type="bool" name="config_useDefaultBatchingForAccel" />
+
     <!-- ADB notification -->
     <java-symbol type="string" name="adb_net_active_notification_title" />
     <java-symbol type="string" name="adb_both_active_notification_title" />
@@ -35,6 +37,10 @@
 
     <!-- Screen unpinning -->
     <java-symbol type="string" name="lock_to_app_toast_no_navbar" />
+
+    <!-- Button backlight -->
+    <java-symbol type="integer" name="config_buttonBrightnessSettingDefault" />
+    <java-symbol type="bool" name="config_deviceHasVariableButtonBrightness" />
 
     <!-- Privacy Guard -->
     <java-symbol type="drawable" name="permission_dialog_trust" />

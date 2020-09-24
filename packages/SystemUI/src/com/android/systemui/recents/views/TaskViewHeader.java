@@ -404,6 +404,7 @@ public class TaskViewHeader extends FrameLayout
             mLockTaskButton.setVisibility(show ? View.VISIBLE : View.INVISIBLE);
             mLockTaskButton.setTranslationX(rightInset);
         }
+        mLockTaskButton.setVisibility(showDismissIcon ? View.VISIBLE : View.INVISIBLE);
 
         setLeftTopRightBottom(0, 0, width, getMeasuredHeight());
     }
@@ -625,6 +626,17 @@ public class TaskViewHeader extends FrameLayout
                     .start();
         } else {
             mDismissButton.setAlpha(1f);
+        }
+        mLockTaskButton.setVisibility(View.VISIBLE);
+        mLockTaskButton.setClickable(true);
+        if (mLockTaskButton.getVisibility() == VISIBLE) {
+            mLockTaskButton.animate()
+                    .alpha(1f)
+                    .setInterpolator(Interpolators.FAST_OUT_LINEAR_IN)
+                    .setDuration(duration)
+                    .start();
+        } else {
+            mLockTaskButton.setAlpha(1f);
         }
         if (mMoveTaskButton != null) {
             if (mMoveTaskButton.getVisibility() == VISIBLE) {

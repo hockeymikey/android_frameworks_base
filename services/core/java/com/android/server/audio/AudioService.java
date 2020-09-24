@@ -1355,7 +1355,14 @@ public class AudioService extends IAudioService.Stub
             updateRingerModeAffectedStreams();
             readDockAudioSettings(cr);
             sendEncodedSurroundMode(cr, "readPersistedSettings");
+
+            mVolumeKeysControlRingStream = LineageSettings.System.getIntForUser(mContentResolver,
+                    LineageSettings.System.VOLUME_KEYS_CONTROL_RING_STREAM, 1,
+                    UserHandle.USER_CURRENT) == 1;
         }
+
+        mLinkNotificationWithVolume = Settings.Secure.getInt(cr,
+                Settings.Secure.VOLUME_LINK_NOTIFICATION, 1) == 1;
 
         mLinkNotificationWithVolume = Settings.Secure.getInt(cr,
                 Settings.Secure.VOLUME_LINK_NOTIFICATION, 1) == 1;

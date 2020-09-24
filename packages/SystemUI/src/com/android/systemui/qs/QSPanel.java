@@ -108,6 +108,7 @@ public class QSPanel extends LinearLayout implements Tunable, Callback, Brightne
     private Record mDetailRecord;
 
     private BrightnessMirrorController mBrightnessMirrorController;
+    private ImageView mMirrorAutoBrightnessView;
     private View mDivider;
 
     private final Vibrator mVibrator;
@@ -219,6 +220,11 @@ public class QSPanel extends LinearLayout implements Tunable, Callback, Brightne
 
         updateResources();
 
+        mBrightnessController = new BrightnessController(getContext(),
+                findViewById(R.id.brightness_icon),
+                findViewById(R.id.brightness_slider));
+
+        mAutoBrightnessView = (ImageView) findViewById(R.id.brightness_icon);
     }
 
     protected void addDivider() {
@@ -254,7 +260,8 @@ public class QSPanel extends LinearLayout implements Tunable, Callback, Brightne
     protected void onAttachedToWindow() {
         super.onAttachedToWindow();
         Dependency.get(TunerService.class).addTunable(this,
-                QS_SHOW_BRIGHTNESS_SLIDER);
+                QS_SHOW_BRIGHTNESS_SLIDER,
+                QS_SHOW_AUTO_BRIGHTNESS);
         if (mHost != null) {
             setTiles(mHost.getTiles());
         }
@@ -285,13 +292,16 @@ public class QSPanel extends LinearLayout implements Tunable, Callback, Brightne
 
     @Override
     public void onTuningChanged(String key, String newValue) {
-        try {
-            if (QS_SHOW_BRIGHTNESS_SLIDER.equals(key)) {
-                mBrightnessView.setVisibility(newValue == null || Integer.parseInt(newValue) != 0
-                        ? VISIBLE : GONE);
+        if (QS_SHOW_BRIGHTNESS_SLIDER.equals(key)) {
+            mBrightnessView.setVisibility(newValue == null || Integer.parseInt(newValue) != 0
+                    ? VISIBLE : GONE);
+        } else if (QS_SHOW_AUTO_BRIGHTNESS.equals(key) && mIsAutomaticBrightnessAvailable) {
+            mAutoBrightnessView.setVisibility(newValue == null || Integer.parseInt(newValue) != 0
+                    ? VISIBLE : GONE);
+            if (mMirrorAutoBrightnessView != null) {
+                mMirrorAutoBrightnessView.setVisibility(newValue == null ||
+                        Integer.parseInt(newValue) != 0 ? INVISIBLE : GONE);
             }
-        } catch (Exception e){
-            Log.d(TAG, "Caught exception from Tuner", e);
         }
     }
 
@@ -385,6 +395,10 @@ public class QSPanel extends LinearLayout implements Tunable, Callback, Brightne
             ToggleSliderView brightnessSlider = findViewById(R.id.brightness_slider);
             ToggleSliderView mirrorSlider = mBrightnessMirrorController.getMirror()
                     .findViewById(R.id.brightness_slider);
+            mMirrorAutoBrightnessView = mBrightnessMirrorController.getMirror()
+                    .findViewById(R.id.brightness_icon);
+            mMirrorAutoBrightnessView.setVisibility(mAutoBrightnessView.getVisibility()
+                    == View.VISIBLE ? View.INVISIBLE : View.GONE);
             brightnessSlider.setMirror(mirrorSlider);
             brightnessSlider.setMirrorController(mBrightnessMirrorController);
         }

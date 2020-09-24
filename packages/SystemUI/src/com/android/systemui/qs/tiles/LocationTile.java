@@ -60,11 +60,15 @@ public class LocationTile extends QSTileImpl<BooleanState> {
     private final KeyguardMonitor mKeyguard;
     private final Callback mCallback = new Callback();
     private int mLastState;
+    private MetricsLogger mMetricsLogger;
+    private int mLastState;
 
     public LocationTile(QSHost host) {
         super(host);
         mController = Dependency.get(LocationController.class);
         mKeyguard = Dependency.get(KeyguardMonitor.class);
+        mDetailAdapter = (LocationDetailAdapter) createDetailAdapter();
+        mMetricsLogger = new MetricsLogger();
         mDetailAdapter = (LocationDetailAdapter) createDetailAdapter();
     }
 

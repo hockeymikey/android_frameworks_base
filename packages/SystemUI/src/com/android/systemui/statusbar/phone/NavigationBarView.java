@@ -864,6 +864,14 @@ public class NavigationBarView extends FrameLayout implements PluginListener<Nav
         }
     }
 
+    public void updateDpadKeys() {
+        final int visibility = mShowDpadArrowKeys && (mNavigationIconHints
+                & StatusBarManager.NAVIGATION_HINT_BACK_ALT) != 0 ? View.VISIBLE : View.GONE;
+
+        getDpadView().findViewById(R.id.dpad_left).setVisibility(visibility);
+        getDpadView().findViewById(R.id.dpad_right).setVisibility(visibility);
+    }
+
     private final Consumer<Boolean> mDockedListener = exists -> mHandler.post(() -> {
         mDockedStackExists = exists;
         updateRecentsIcon();

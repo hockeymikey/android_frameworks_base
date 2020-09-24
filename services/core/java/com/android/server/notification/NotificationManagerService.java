@@ -732,18 +732,23 @@ public class NotificationManagerService extends SystemService {
         @Override
         public void onNotificationError(int callingUid, int callingPid, String pkg, String tag, int id,
                 int uid, int initialPid, String message, int userId) {
-            Slog.d(TAG, "onNotification error pkg=" + pkg + " tag=" + tag + " id=" + id
-                    + "; will crashApplication(uid=" + uid + ", pid=" + initialPid + ")");
+            final boolean fgService;
+            synchronized (mNotificationLock) {
+                NotificationRecord r = findNotificationLocked(pkg, tag, id, userId);
+                fgService = r != null
+                        && (r.getNotification().flags&Notification.FLAG_FOREGROUND_SERVICE) != 0;
+            }
             cancelNotification(callingUid, callingPid, pkg, tag, id, 0, 0, false, userId,
                     REASON_ERROR, null);
-            long ident = Binder.clearCallingIdentity();
-            try {
-                ActivityManager.getService().crashApplication(uid, initialPid, pkg, -1,
-                        "Bad notification posted from package " + pkg
-                        + ": " + message);
-            } catch (RemoteException e) {
+            if (fgService) {
+                // Still crash for foreground services, preventing the not-crash behaviour abused
+                // by apps to give us a garbage notification and silently start a fg service.
+                Binder.withCleanCallingIdentity(
+                        () -> mAm.crashApplication(uid, initialPid, pkg, -1,
+                            "Bad notification(tag=" + tag + ", id=" + id + ") posted from package "
+                                + pkg + ", crashing app(uid=" + uid + ", pid=" + initialPid + "): "
+                                + message, true /* force */));
             }
-            Binder.restoreCallingIdentity(ident);
         }
 
         @Override
@@ -1826,6 +1831,11 @@ public class NotificationManagerService extends SystemService {
         @Override
         public boolean areNotificationsEnabledForPackage(String pkg, int uid) {
             checkCallerIsSystemOrSameApp(pkg);
+            if (UserHandle.getCallingUserId() != UserHandle.getUserId(uid)) {
+                getContext().enforceCallingPermission(
+                        android.Manifest.permission.INTERACT_ACROSS_USERS,
+                        "canNotifyAsPackage for uid " + uid);
+            }
 
             return mRankingHelper.getImportance(pkg, uid) != IMPORTANCE_NONE;
         }
@@ -4841,8 +4851,15 @@ public class NotificationManagerService extends SystemService {
                         userId, mustHaveFlags, mustNotHaveFlags, reason, listenerName);
 
                 synchronized (mNotificationLock) {
-                    // Look for the notification, searching both the posted and enqueued lists.
-                    NotificationRecord r = findNotificationLocked(pkg, tag, id, userId);
+                    // If the notification is currently enqueued, repost this runnable so it has a
+                    // chance to notify listeners
+                    if ((findNotificationByListLocked(
+                            mEnqueuedNotifications, pkg, tag, id, userId)) != null) {
+                        mHandler.post(this);
+                    }
+                    // Look for the notification in the posted list, since we already checked enq
+                    NotificationRecord r = findNotificationByListLocked(
+                            mNotificationList, pkg, tag, id, userId);
                     if (r != null) {
                         // The notification was found, check if it should be removed.
 
@@ -5132,9 +5149,19 @@ public class NotificationManagerService extends SystemService {
             mNotificationLight.turnOff();
         } else {
             mNotificationLight.setModes(ledValues.getBrightness());
-            mNotificationLight.setFlashing(ledValues.getColor(), Light.LIGHT_FLASH_TIMED,
-                    ledValues.getOnMs(), ledValues.getOffMs());
+            // we are using 1:0 to indicate LED should stay always on
+            if (ledValues.getOnMs() == 1 && ledValues.getOffMs() == 0) {
+                mNotificationLight.setColor(ledValues.getColor());
+            } else {
+                mNotificationLight.setFlashing(ledValues.getColor(), Light.LIGHT_FLASH_TIMED,
+                        ledValues.getOnMs(), ledValues.getOffMs());
+            }
         }
+    }
+
+    private boolean isLedForcedOn(NotificationRecord nr) {
+        return nr != null ?
+                mLineageNotificationLights.isForcedOn(nr.sbn.getNotification()) : false;
     }
 
     private boolean isLedForcedOn(NotificationRecord nr) {

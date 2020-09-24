@@ -247,7 +247,7 @@ public class BrightnessController implements ToggleSlider.Listener {
             try {
                 switch (msg.what) {
                     case MSG_UPDATE_ICON:
-                        updateIcon();
+                        updateIcon(msg.arg1 != 0);
                         break;
                     case MSG_UPDATE_SLIDER:
                         mControl.setMax(msg.arg1);
@@ -278,7 +278,6 @@ public class BrightnessController implements ToggleSlider.Listener {
         mContext = context;
         mIcon = icon;
         mControl = control;
-        Dependency.initDependencies(context.getApplicationContext());
         mBackgroundHandler = new Handler((Looper) Dependency.get(Dependency.BG_LOOPER));
         mUserTracker = new CurrentUserTracker(mContext) {
             @Override
@@ -302,19 +301,17 @@ public class BrightnessController implements ToggleSlider.Listener {
         mVrManager = IVrManager.Stub.asInterface(ServiceManager.getService(
                 Context.VR_SERVICE));
 
-
-       if (mIcon != null) {
-            if (mAutomaticAvailable) {
-                mIcon.setOnClickListener(new View.OnClickListener() {
-                    @Override
-                    public void onClick(View v) {
-                        int newMode = mAutomatic ? Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL : Settings.System.SCREEN_BRIGHTNESS_MODE_AUTOMATIC;
-                        setMode(newMode);
-                    }
-                });
+        if (mIcon != null && mAutomaticAvailable) {
+            mIcon.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    Settings.System.putIntForUser(mContext.getContentResolver(),
+                            Settings.System.SCREEN_BRIGHTNESS_MODE, mAutomatic ? Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL :
+                            Settings.System.SCREEN_BRIGHTNESS_MODE_AUTOMATIC,
+                        UserHandle.USER_CURRENT);
             }
-        }
-   }
+        });
+    }
 
     public void addStateChangedCallback(BrightnessStateChangeCallback cb) {
         mChangeCallbacks.add(cb);
@@ -368,7 +365,7 @@ public class BrightnessController implements ToggleSlider.Listener {
     @Override
     public void onChanged(ToggleSlider toggleSlider, boolean tracking, boolean automatic,
             int value, boolean stopTracking) {
-        //updateIcon(mAutomatic);
+        updateIcon(mAutomatic);
         if (mExternalChange) return;
 
         if (mIsVrModeEnabled) {
@@ -443,7 +440,7 @@ public class BrightnessController implements ToggleSlider.Listener {
         }
     }
 
-    private void updateIcon() {
+    private void updateIcon(boolean automatic) {
         if (mIcon != null) {
             mIcon.setImageResource(mAutomatic ?
                     com.android.systemui.R.drawable.ic_qs_brightness_auto_on_new :

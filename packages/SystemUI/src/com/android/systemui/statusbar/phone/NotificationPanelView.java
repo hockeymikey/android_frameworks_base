@@ -274,43 +274,6 @@ public class NotificationPanelView extends PanelView implements
     private StatusBarKeyguardViewManager mStatusBarKeyguardViewManager;
     private boolean mUserSetupComplete;
 
-    private int mOneFingerQuickSettingsIntercept;
-    private boolean mDoubleTapToSleepEnabled;
-    private int mStatusBarHeaderHeight;
-    private GestureDetector mDoubleTapGesture;
-    
-    public static boolean mBlurredStatusBarExpandedEnabled;
-    public static NotificationPanelView mNotificationPanelView;
-
-    private static int mBlurScale;
-    private static int mBlurRadius;
-    private static BlurUtils mBlurUtils;
-    private static FrameLayout mBlurredView;
-    private static ColorFilter mColorFilter;
-    private static int mBlurDarkColorFilter;
-    private static int mBlurMixedColorFilter;
-    private static int mBlurLightColorFilter;
-    private static int mTranslucencyPercentage;
-    private static AlphaAnimation mAlphaAnimation;
-    private static FrameLayout mInnerBlurredView;
-    private Handler mHandler = new Handler();
-    private SettingsObserver mSettingsObserver;
-    
-    private static Animation.AnimationListener mAnimationListener = new Animation.AnimationListener() {
-
-        @Override
-        public void onAnimationStart(Animation anim) {
-            mBlurredView.setVisibility(View.VISIBLE);
-        }
-
-        @Override
-        public void onAnimationEnd(Animation anim) {}
-
-        @Override
-        public void onAnimationRepeat(Animation anim) {}
-
-    };
-
     public NotificationPanelView(Context context, AttributeSet attrs) {
         super(context, attrs);
         setWillNotDraw(!DEBUG);
@@ -360,10 +323,6 @@ public class NotificationPanelView extends PanelView implements
     protected void onAttachedToWindow() {
         super.onAttachedToWindow();
         FragmentHostManager.get(this).addTagListener(QS.TAG, mFragmentListener);
-        mSettingsObserver.observe();
-        Dependency.get(TunerService.class).addTunable(this,
-                STATUS_BAR_QUICK_QS_PULLDOWN,
-                DOUBLE_TAP_SLEEP_GESTURE);
     }
 
     @Override
@@ -505,13 +464,13 @@ public class NotificationPanelView extends PanelView implements
         mIsFullWidth = isFullWidth;
         mNotificationStackScroller.setIsFullWidth(isFullWidth);
     }
-    
+
     public static void recycle() {
 
         mBlurredView.setBackground(null);
 
         if (mInnerBlurredView != null && mInnerBlurredView.getBackground() != null) {
-            
+
             if (mInnerBlurredView.getBackground() instanceof BitmapDrawable) {
 
                 Bitmap bitmap = ((BitmapDrawable) mInnerBlurredView.getBackground()).getBitmap();
@@ -554,7 +513,7 @@ public class NotificationPanelView extends PanelView implements
 
             Context context = mNotificationPanelView.getContext();
             mScreenDimens = DisplayUtils.getRealScreenDimensions(context);
-            
+
             //We don't want SystemUI to crash for Arithmetic Exception
             if(mBlurScale==0){
                 mBlurScale=1;
@@ -576,7 +535,7 @@ public class NotificationPanelView extends PanelView implements
                 if(mBlurRadius == 0){
                     mBlurRadius=1;
                 }
-                
+
                 mScreenBitmap = mBlurUtils.renderScriptBlur(mScreenBitmap, mBlurRadius);
                 return mScreenBitmap;
 
@@ -2923,10 +2882,10 @@ public class NotificationPanelView extends PanelView implements
         } catch (Exception e){
         }
         if (mNotificationPanelView == null)
-            return;  
+            return;
         if (mKeyguardShowing || mHeadsUpShowing || mHeadsUpAnimatingAway)
             return;
-       
+
         BlurTask.setBlurTaskCallback(new BlurUtils.BlurTaskCallback() {
 
             @Override
@@ -2935,7 +2894,7 @@ public class NotificationPanelView extends PanelView implements
                 if (blurredBitmap != null) {
 
                     if (mBlurredView.getLayoutParams().width != mNotificationPanelView.getWidth()) {
-                        
+
                         mBlurredView.getLayoutParams().width = mNotificationPanelView.getWidth();
                         mBlurredView.requestLayout();
                     }
@@ -3041,11 +3000,11 @@ public class NotificationPanelView extends PanelView implements
             mBlurredStatusBarExpandedEnabled = Settings.System.getIntForUser(resolver,
                     Settings.System.STATUS_BAR_EXPANDED_ENABLED_PREFERENCE_KEY, 0, UserHandle.USER_CURRENT) == 1;
 
-            mBlurDarkColorFilter = Settings.System.getInt(mContext.getContentResolver(), 
+            mBlurDarkColorFilter = Settings.System.getInt(mContext.getContentResolver(),
                     Settings.System.BLUR_DARK_COLOR_PREFERENCE_KEY, Color.LTGRAY);
-            mBlurMixedColorFilter = Settings.System.getInt(mContext.getContentResolver(), 
+            mBlurMixedColorFilter = Settings.System.getInt(mContext.getContentResolver(),
                     Settings.System.BLUR_MIXED_COLOR_PREFERENCE_KEY, Color.GRAY);
-            mBlurLightColorFilter = Settings.System.getInt(mContext.getContentResolver(), 
+            mBlurLightColorFilter = Settings.System.getInt(mContext.getContentResolver(),
                     Settings.System.BLUR_LIGHT_COLOR_PREFERENCE_KEY, Color.DKGRAY);
             mTranslucencyPercentage = 255 - ((mTranslucencyPercentage * 255) / 100);
         }

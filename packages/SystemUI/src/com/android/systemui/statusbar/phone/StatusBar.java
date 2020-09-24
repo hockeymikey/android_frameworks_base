@@ -62,6 +62,7 @@ import android.app.admin.DevicePolicyManager;
 import android.content.BroadcastReceiver;
 import android.content.ComponentCallbacks2;
 import android.content.ComponentName;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.ContentResolver;
 import android.content.Intent;
@@ -124,6 +125,7 @@ import android.service.vr.IVrManager;
 import android.service.vr.IVrStateCallbacks;
 import android.text.TextUtils;
 import android.util.ArraySet;
+import android.util.ArrayMap;
 import android.util.DisplayMetrics;
 import android.util.EventLog;
 import android.util.Log;
@@ -232,6 +234,7 @@ import com.android.systemui.recents.events.activity.UndockingTaskEvent;
 import com.android.systemui.recents.misc.IconPackHelper;
 import com.android.systemui.recents.misc.SystemServicesProxy;
 import com.android.systemui.slimrecent.RecentController;
+import com.android.systemui.settings.CurrentUserTracker;
 import com.android.systemui.stackdivider.Divider;
 import com.android.systemui.stackdivider.WindowManagerProxy;
 import com.android.systemui.statusbar.ActivatableNotificationView;
@@ -241,6 +244,7 @@ import com.android.systemui.statusbar.DismissView;
 import com.android.systemui.statusbar.DragDownHelper;
 import com.android.systemui.statusbar.EmptyShadeView;
 import com.android.systemui.statusbar.ExpandableNotificationRow;
+import com.android.systemui.statusbar.ForegroundServiceLifetimeExtender;
 import com.android.systemui.statusbar.GestureRecorder;
 import com.android.systemui.statusbar.KeyboardShortcuts;
 import com.android.systemui.statusbar.KeyguardIndicationController;
@@ -249,6 +253,7 @@ import com.android.systemui.statusbar.NotificationData.Entry;
 import com.android.systemui.statusbar.appcirclesidebar.AppCircleSidebar;
 import com.android.systemui.statusbar.NotificationGuts;
 import com.android.systemui.statusbar.NotificationInfo;
+import com.android.systemui.statusbar.NotificationLifetimeExtender;
 import com.android.systemui.statusbar.NotificationShelf;
 import com.android.systemui.statusbar.NotificationSnooze;
 import com.android.systemui.statusbar.RemoteInputController;
@@ -311,6 +316,7 @@ import java.util.Stack;
 
 import lineageos.hardware.LiveDisplayManager;
 import lineageos.providers.LineageSettings;
+import lineageos.style.StyleInterface;
 
 public class StatusBar extends SystemUI implements DemoMode,
         DragDownHelper.DragDownCallback, ActivityStarter, OnUnlockMethodChangedListener,
@@ -566,6 +572,8 @@ public class StatusBar extends SystemUI implements DemoMode,
 
     private boolean mFpDismissNotifications;
 
+    private int mStatusBarHeaderHeight;
+
     // the tracker view
     int mTrackingPosition; // the position of the top of the tracking view.
 
@@ -631,6 +639,8 @@ public class StatusBar extends SystemUI implements DemoMode,
 
     private UiModeManager mUiModeManager;
 
+    private UiModeManager mUiModeManager;
+
     private final MetricsLogger mMetricsLogger = Dependency.get(MetricsLogger.class);
 
     Runnable mLongPressBrightnessChange = new Runnable() {
@@ -641,6 +651,45 @@ public class StatusBar extends SystemUI implements DemoMode,
             mLinger = BRIGHTNESS_CONTROL_LINGER_THRESHOLD + 1;
         }
     };
+
+    class DevForceNavbarObserver extends ContentObserver {
+        DevForceNavbarObserver(Handler handler) {
+            super(handler);
+        }
+
+        void observe() {
+            ContentResolver resolver = mContext.getContentResolver();
+            resolver.registerContentObserver(LineageSettings.Global.getUriFor(
+                    LineageSettings.Global.DEV_FORCE_SHOW_NAVBAR), false, this,
+                    UserHandle.USER_ALL);
+
+            CurrentUserTracker userTracker = new CurrentUserTracker(mContext) {
+                @Override
+                public void onUserSwitched(int newUserId) {
+                    update();
+                }
+            };
+            userTracker.startTracking();
+        }
+
+        @Override
+        public void onChange(boolean selfChange) {
+            super.onChange(selfChange);
+            update();
+        }
+
+        private void update() {
+            boolean visible = LineageSettings.Global.getIntForUser(mContext.getContentResolver(),
+                    LineageSettings.Global.DEV_FORCE_SHOW_NAVBAR, 0, UserHandle.USER_CURRENT) == 1;
+
+            if (visible && mNavigationBarView == null) {
+                createNavigationBar();
+            } else if (mNavigationBarView != null) {
+                mWindowManager.removeViewImmediate(mNavigationBarView);
+                mNavigationBarView = null;
+            }
+        }
+    }
 
     // ensure quick settings is disabled until the current user makes it through the setup wizard
     private boolean mUserSetup = false;
@@ -969,9 +1018,9 @@ public class StatusBar extends SystemUI implements DemoMode,
     @Nullable private View mAmbientIndicationContainer;
     private String mKeyToRemoveOnGutsClosed;
     private SysuiColorExtractor mColorExtractor;
-    private ForegroundServiceController mForegroundServiceController;
     private ScreenLifecycle mScreenLifecycle;
     @VisibleForTesting WakefulnessLifecycle mWakefulnessLifecycle;
+    protected ForegroundServiceController mForegroundServiceController;
 
     // Force black theme
     private boolean mForceBlackTheme;
@@ -1035,6 +1084,9 @@ public class StatusBar extends SystemUI implements DemoMode,
         mWindowManager = (WindowManager) mContext.getSystemService(Context.WINDOW_SERVICE);
 
         mForegroundServiceController = Dependency.get(ForegroundServiceController.class);
+        mFGSExtender = new ForegroundServiceLifetimeExtender();
+        mFGSExtender.setCallback(key -> removeNotification(key, mLatestRankingMap));
+
 
         mDisplay = mWindowManager.getDefaultDisplay();
 
@@ -1091,13 +1143,19 @@ public class StatusBar extends SystemUI implements DemoMode,
                 mLockscreenSettingsObserver,
                 UserHandle.USER_ALL);
 
+        mContext.getContentResolver().registerContentObserver(
+                LineageSettings.System.getUriFor(LineageSettings.System.BERRY_GLOBAL_STYLE),
+                true,
+                mThemeSettingsObserver,
+                UserHandle.USER_ALL);
+
 
         mContext.getContentResolver().registerContentObserver(Settings.Secure.getUriFor(
-                Settings.Secure.NAVIGATION_BAR_VISIBLE), 
-                false, 
-                mNavbarObserver, 
+                Settings.Secure.NAVIGATION_BAR_VISIBLE),
+                false,
+                mNavbarObserver,
                 UserHandle.USER_ALL);
- 
+
 
         mBarService = IStatusBarService.Stub.asInterface(
                 ServiceManager.getService(Context.STATUS_BAR_SERVICE));
@@ -1218,6 +1276,22 @@ public class StatusBar extends SystemUI implements DemoMode,
                 = (MediaSessionManager) mContext.getSystemService(Context.MEDIA_SESSION_SERVICE);
         // TODO: use MediaSessionManager.SessionListener to hook us up to future updates
         // in session state
+
+                // Developer options - Force Navigation bar
+        try {
+            boolean needsNav = mWindowManagerService.needsNavigationBar();
+            if (!needsNav) {
+                final DevForceNavbarObserver observer = new DevForceNavbarObserver(mHandler);
+                observer.observe();
+            }
+        } catch (RemoteException ex) {
+            // no window manager? good luck with that
+        }
+
+        Dependency.get(TunerService.class).addTunable(this,
+                SCREEN_BRIGHTNESS_MODE,
+                STATUS_BAR_BRIGHTNESS_CONTROL,
+                LOCKSCREEN_MEDIA_METADATA);
 
         Dependency.get(TunerService.class).addTunable(this,
                 SCREEN_BRIGHTNESS_MODE,
@@ -2222,6 +2296,11 @@ public class StatusBar extends SystemUI implements DemoMode,
         }
         Entry entry = mNotificationData.get(key);
 
+        if (entry != null && mFGSExtender.shouldExtendLifetime(entry)) {
+            extendLifetime(entry, mFGSExtender);
+            return;
+        }
+
         if (entry != null && mRemoteInputController.isRemoteInputActive(entry)
                 && (entry.row != null && !entry.row.isDismissed())) {
             mLatestRankingMap = ranking;
@@ -2266,7 +2345,33 @@ public class StatusBar extends SystemUI implements DemoMode,
                 }
             }
         }
+        // Make sure no lifetime extension is happening anymore
+        cancelLifetimeExtension(entry);
         setAreThereNotifications();
+    }
+
+    /** Lifetime extension keeps entries around after they would've otherwise been canceled */
+    private void extendLifetime(Entry entry, NotificationLifetimeExtender extender) {
+        // Cancel any other extender which might be holding on to this notification entry
+        NotificationLifetimeExtender activeExtender = mRetainedNotifications.get(entry);
+        if (activeExtender != null && activeExtender != extender) {
+            activeExtender.setShouldManageLifetime(entry, false);
+        }
+        mRetainedNotifications.put(entry, extender);
+        extender.setShouldManageLifetime(entry, true);
+    }
+
+    /** Tells the current extender (if any) to stop extending the entry's lifetime */
+    private void cancelLifetimeExtension(NotificationData.Entry entry) {
+        NotificationLifetimeExtender activeExtender = mRetainedNotifications.remove(entry);
+        if (activeExtender != null) {
+            activeExtender.setShouldManageLifetime(entry, false);
+        }
+    }
+
+    @VisibleForTesting
+    public Map<Entry, NotificationLifetimeExtender> getRetainedNotificationMap() {
+        return mRetainedNotifications;
     }
 
     /**
@@ -2877,7 +2982,7 @@ public class StatusBar extends SystemUI implements DemoMode,
         }
 
         Drawable artworkDrawable = null;
-        if (mMediaMetadata != null && mLockscreenMediaMetadata) {
+        if (mMediaMetadata != null) {
             Bitmap artworkBitmap = null;
             artworkBitmap = mMediaMetadata.getBitmap(MediaMetadata.METADATA_KEY_ART);
             if (artworkBitmap == null) {
@@ -3346,35 +3451,15 @@ public class StatusBar extends SystemUI implements DemoMode,
         updateTheme();
     }
 
-    public boolean isUsingDarkOrBlackTheme() {
-        OverlayInfo systemuiThemeInfoDark = null;
-        OverlayInfo systemuiThemeInfoBlack = null;
+    public boolean isUsingDarkTheme() {
+        OverlayInfo themeInfo = null;
         try {
-            systemuiThemeInfoDark = mOverlayManager.getOverlayInfo("org.lineageos.overlay.dark",
+            themeInfo = mOverlayManager.getOverlayInfo("com.android.systemui.theme.dark",
                     mCurrentUserId);
         } catch (RemoteException e) {
             e.printStackTrace();
         }
-        try {
-            systemuiThemeInfoBlack = mOverlayManager.getOverlayInfo("org.lineageos.overlay.black",
-                    mCurrentUserId);
-        } catch (RemoteException e) {
-            e.printStackTrace();
-        }
-        return (systemuiThemeInfoDark != null && systemuiThemeInfoDark.isEnabled()) || 
-        (systemuiThemeInfoBlack != null && systemuiThemeInfoBlack.isEnabled());
-    }
-
-    private boolean isLiveDisplayNightModeOn() {
-        // SystemUI is initialized before LiveDisplay, so the service may not
-        // be ready when this is called the first time
-        LiveDisplayManager manager = LiveDisplayManager.getInstance(mContext);
-        try {
-            return manager.isNightModeEnabled();
-        } catch (NullPointerException e) {
-            Log.w(TAG, e.getMessage());
-        }
-        return false;
+        return themeInfo != null && themeInfo.isEnabled();
     }
 
     @Nullable
@@ -3694,6 +3779,96 @@ public class StatusBar extends SystemUI implements DemoMode,
             WindowManagerGlobal.getInstance().trimMemory(ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN);
         }
         NotificationPanelView.recycle();
+    }
+
+    private void adjustBrightness(int x) {
+        mBrightnessChanged = true;
+        float raw = ((float) x) / mScreenWidth;
+
+        // Add a padding to the brightness control on both sides to
+        // make it easier to reach min/max brightness
+        float padded = Math.min(1.0f - BRIGHTNESS_CONTROL_PADDING,
+                Math.max(BRIGHTNESS_CONTROL_PADDING, raw));
+        float value = (padded - BRIGHTNESS_CONTROL_PADDING) /
+                (1 - (2.0f * BRIGHTNESS_CONTROL_PADDING));
+        try {
+            IPowerManager power = IPowerManager.Stub.asInterface(
+                    ServiceManager.getService("power"));
+            if (power != null) {
+                if (mAutomaticBrightness) {
+                    float adj = (2 * value) - 1;
+                    adj = Math.max(adj, -1);
+                    adj = Math.min(adj, 1);
+                    final float val = adj;
+                    power.setTemporaryScreenAutoBrightnessAdjustmentSettingOverride(val);
+                    AsyncTask.execute(new Runnable() {
+                        public void run() {
+                            Settings.System.putFloatForUser(mContext.getContentResolver(),
+                                    Settings.System.SCREEN_AUTO_BRIGHTNESS_ADJ, val,
+                                    UserHandle.USER_CURRENT);
+                        }
+                    });
+                } else {
+                    int newBrightness = mMinBrightness + (int) Math.round(value *
+                            (android.os.PowerManager.BRIGHTNESS_ON - mMinBrightness));
+                    newBrightness = Math.min(newBrightness, android.os.PowerManager.BRIGHTNESS_ON);
+                    newBrightness = Math.max(newBrightness, mMinBrightness);
+                    final int val = newBrightness;
+                    power.setTemporaryScreenBrightnessSettingOverride(val);
+                    AsyncTask.execute(new Runnable() {
+                        @Override
+                        public void run() {
+                            Settings.System.putIntForUser(mContext.getContentResolver(),
+                                    Settings.System.SCREEN_BRIGHTNESS, val,
+                                    UserHandle.USER_CURRENT);
+                        }
+                    });
+                }
+            }
+        } catch (RemoteException e) {
+            Log.w(TAG, "Setting Brightness failed: " + e);
+        }
+    }
+
+    private void brightnessControl(MotionEvent event) {
+        final int action = event.getAction();
+        final int x = (int) event.getRawX();
+        final int y = (int) event.getRawY();
+        if (action == MotionEvent.ACTION_DOWN) {
+            if (y < mStatusBarHeaderHeight) {
+                mLinger = 0;
+                mInitialTouchX = x;
+                mInitialTouchY = y;
+                mJustPeeked = true;
+                mHandler.removeCallbacks(mLongPressBrightnessChange);
+                mHandler.postDelayed(mLongPressBrightnessChange,
+                        BRIGHTNESS_CONTROL_LONG_PRESS_TIMEOUT);
+            }
+        } else if (action == MotionEvent.ACTION_MOVE) {
+            if (y < mStatusBarHeaderHeight && mJustPeeked) {
+                if (mLinger > BRIGHTNESS_CONTROL_LINGER_THRESHOLD) {
+                    adjustBrightness(x);
+                } else {
+                    final int xDiff = Math.abs(x - mInitialTouchX);
+                    final int yDiff = Math.abs(y - mInitialTouchY);
+                    final int touchSlop = ViewConfiguration.get(mContext).getScaledTouchSlop();
+                    if (xDiff > yDiff) {
+                        mLinger++;
+                    }
+                    if (xDiff > touchSlop || yDiff > touchSlop) {
+                        mHandler.removeCallbacks(mLongPressBrightnessChange);
+                    }
+                }
+            } else {
+                if (y > mStatusBarHeaderHeight) {
+                    mJustPeeked = false;
+                }
+                mHandler.removeCallbacks(mLongPressBrightnessChange);
+            }
+        } else if (action == MotionEvent.ACTION_UP
+                || action == MotionEvent.ACTION_CANCEL) {
+            mHandler.removeCallbacks(mLongPressBrightnessChange);
+        }
     }
 
     private void adjustBrightness(int x) {
@@ -4317,6 +4492,17 @@ public class StatusBar extends SystemUI implements DemoMode,
             }
         }
 
+        pw.println("  Lifetime-extended notifications:");
+        if (mRetainedNotifications.isEmpty()) {
+            pw.println("    None");
+        } else {
+            for (Map.Entry<NotificationData.Entry, NotificationLifetimeExtender> entry
+                    : mRetainedNotifications.entrySet()) {
+                pw.println("    " + entry.getKey().notification + " retained by "
+                        + entry.getValue().getClass().getName());
+            }
+        }
+
         pw.print("  mInteractingWindows="); pw.println(mInteractingWindows);
         pw.print("  mStatusBarWindowState=");
         pw.println(windowStateToString(mStatusBarWindowState));
@@ -4594,6 +4780,9 @@ public class StatusBar extends SystemUI implements DemoMode,
             else if (Intent.ACTION_SCREEN_ON.equals(action)) {
                 mScreenOn = true;
                 NotificationPanelView.recycle();
+            }
+            else if (Intent.ACTION_SCREEN_ON.equals(action)) {
+                mScreenOn = true;
             }
             else if (DevicePolicyManager.ACTION_SHOW_DEVICE_MONITORING_DIALOG.equals(action)) {
                 mQSPanel.showDeviceMonitoringDialog();
@@ -6645,6 +6834,11 @@ public class StatusBar extends SystemUI implements DemoMode,
 
     protected RemoteInputController mRemoteInputController;
 
+    // A lifetime extender that watches for foreground service notifications
+    @VisibleForTesting protected NotificationLifetimeExtender mFGSExtender;
+    private final Map<Entry, NotificationLifetimeExtender> mRetainedNotifications =
+        new ArrayMap<>();
+
     // for heads up notifications
     protected HeadsUpManager mHeadsUpManager;
 
@@ -6806,6 +7000,13 @@ public class StatusBar extends SystemUI implements DemoMode,
         }
     };
 
+    protected final ContentObserver mThemeSettingsObserver = new ContentObserver(mHandler) {
+        @Override
+        public void onChange(boolean selfChange) {
+            updateTheme();
+        }
+    };
+
     private final ContentObserver mLockscreenSettingsObserver = new ContentObserver(mHandler) {
         @Override
         public void onChange(boolean selfChange) {
@@ -6882,43 +7083,43 @@ public class StatusBar extends SystemUI implements DemoMode,
                     Settings.Secure.FP_SWIPE_TO_DISMISS_NOTIFICATIONS),
                     false, this, UserHandle.USER_ALL);
             resolver.registerContentObserver(Settings.System.getUriFor(
-                    Settings.System.BLUR_SCALE_PREFERENCE_KEY), 
+                    Settings.System.BLUR_SCALE_PREFERENCE_KEY),
                     false, this);
             resolver.registerContentObserver(Settings.System.getUriFor(
-                    Settings.System.BLUR_RADIUS_PREFERENCE_KEY), 
+                    Settings.System.BLUR_RADIUS_PREFERENCE_KEY),
                     false, this);
             resolver.registerContentObserver(Settings.System.getUriFor(
-                    Settings.System.STATUS_BAR_EXPANDED_ENABLED_PREFERENCE_KEY), 
+                    Settings.System.STATUS_BAR_EXPANDED_ENABLED_PREFERENCE_KEY),
                     false, this);
             resolver.registerContentObserver(Settings.System.getUriFor(
-                    Settings.System.TRANSLUCENT_NOTIFICATIONS_PREFERENCE_KEY), 
+                    Settings.System.TRANSLUCENT_NOTIFICATIONS_PREFERENCE_KEY),
                     false, this);
             resolver.registerContentObserver(Settings.System.getUriFor(
-                    Settings.System.TRANSLUCENT_NOTIFICATIONS_PRECENTAGE_PREFERENCE_KEY), 
+                    Settings.System.TRANSLUCENT_NOTIFICATIONS_PRECENTAGE_PREFERENCE_KEY),
                     false, this, UserHandle.USER_ALL);
            resolver.registerContentObserver(Settings.System.getUriFor(
-                 Settings.System.TRANSLUCENT_NOTIFICATIONS_PRECENTAGE_PREFERENCE_KEY), 
+                 Settings.System.TRANSLUCENT_NOTIFICATIONS_PRECENTAGE_PREFERENCE_KEY),
                  false, this, UserHandle.USER_ALL);
             resolver.registerContentObserver(Settings.System.getUriFor(
-                 Settings.System.RECENT_APPS_ENABLED_PREFERENCE_KEY), 
+                 Settings.System.RECENT_APPS_ENABLED_PREFERENCE_KEY),
                  false, this, UserHandle.USER_ALL);
             resolver.registerContentObserver(Settings.System.getUriFor(
-                 Settings.System.RECENT_APPS_SCALE_PREFERENCE_KEY), 
-                 false, this);
-            resolver.registerContentObserver(Settings.System.getUriFor(
-                 Settings.System.RECENT_APPS_RADIUS_PREFERENCE_KEY), 
+                 Settings.System.RECENT_APPS_SCALE_PREFERENCE_KEY),
                  false, this);
             resolver.registerContentObserver(Settings.System.getUriFor(
                  Settings.System.RECENT_APPS_RADIUS_PREFERENCE_KEY),
                  false, this);
             resolver.registerContentObserver(Settings.System.getUriFor(
-                 Settings.System.BLUR_DARK_COLOR_PREFERENCE_KEY), 
+                 Settings.System.RECENT_APPS_RADIUS_PREFERENCE_KEY),
                  false, this);
             resolver.registerContentObserver(Settings.System.getUriFor(
-                 Settings.System.BLUR_LIGHT_COLOR_PREFERENCE_KEY), 
+                 Settings.System.BLUR_DARK_COLOR_PREFERENCE_KEY),
                  false, this);
             resolver.registerContentObserver(Settings.System.getUriFor(
-                 Settings.System.BLUR_MIXED_COLOR_PREFERENCE_KEY), 
+                 Settings.System.BLUR_LIGHT_COLOR_PREFERENCE_KEY),
+                 false, this);
+            resolver.registerContentObserver(Settings.System.getUriFor(
+                 Settings.System.BLUR_MIXED_COLOR_PREFERENCE_KEY),
                  false, this);
             resolver.registerContentObserver(Settings.System.getUriFor(
                   Settings.System.NO_SIM_CLUSTER_SWITCH),
@@ -6947,7 +7148,7 @@ public class StatusBar extends SystemUI implements DemoMode,
         }
 
         @Override
-        public void onChange(boolean selfChange, Uri uri) {         
+        public void onChange(boolean selfChange, Uri uri) {
             if (uri.equals (LineageSettings.System.getUriFor(
                     LineageSettings.System.BERRY_GLOBAL_STYLE)) ||
                     uri.equals (LineageSettings.System.getUriFor(
@@ -6986,7 +7187,7 @@ public class StatusBar extends SystemUI implements DemoMode,
                 setStatusBarWindowViewOptions();
             } else if (uri.equals(Settings.Secure.getUriFor(
                     Settings.Secure.LOCK_QS_DISABLED))) {
-                setStatusBarWindowViewOptions(); 
+                setStatusBarWindowViewOptions();
             } else if (uri.equals(Settings.System.getUriFor(
                     Settings.System.USE_SLIM_RECENTS))) {
                 updateRecentsMode();
@@ -7130,11 +7331,11 @@ public class StatusBar extends SystemUI implements DemoMode,
                     Settings.System.RECENT_APPS_SCALE_PREFERENCE_KEY, 6);
             mRadiusRecents = Settings.System.getInt(mContext.getContentResolver(),
                     Settings.System.RECENT_APPS_RADIUS_PREFERENCE_KEY, 3);
-            mBlurDarkColorFilter = Settings.System.getInt(mContext.getContentResolver(), 
+            mBlurDarkColorFilter = Settings.System.getInt(mContext.getContentResolver(),
                     Settings.System.BLUR_DARK_COLOR_PREFERENCE_KEY, Color.LTGRAY);
-            mBlurMixedColorFilter = Settings.System.getInt(mContext.getContentResolver(), 
+            mBlurMixedColorFilter = Settings.System.getInt(mContext.getContentResolver(),
                     Settings.System.BLUR_MIXED_COLOR_PREFERENCE_KEY, Color.GRAY);
-            mBlurLightColorFilter = Settings.System.getInt(mContext.getContentResolver(), 
+            mBlurLightColorFilter = Settings.System.getInt(mContext.getContentResolver(),
                     Settings.System.BLUR_LIGHT_COLOR_PREFERENCE_KEY, Color.DKGRAY);
             RecentsActivity.updateBlurColors(mBlurDarkColorFilter,mBlurMixedColorFilter,mBlurLightColorFilter);
             RecentsActivity.updateRadiusScale(mScaleRecents,mRadiusRecents);
@@ -8783,6 +8984,9 @@ public class StatusBar extends SystemUI implements DemoMode,
             Log.w(TAG, "Notification that was kept for guts was updated. " + key);
         }
 
+        // No need to keep the lifetime extension around if an update comes in for it
+        cancelLifetimeExtension(entry);
+
         Notification n = notification.getNotification();
         mNotificationData.updateRanking(ranking);
 
@@ -9072,11 +9276,11 @@ public class StatusBar extends SystemUI implements DemoMode,
              mWindowManager.removeView(mAppCircleSidebar);
          }
      }
- 
+
     protected WindowManager.LayoutParams getAppCircleSidebarLayoutParams() {
          int maxWidth =
                  mContext.getResources().getDimensionPixelSize(R.dimen.app_sidebar_trigger_width);
- 
+
          WindowManager.LayoutParams lp = new WindowManager.LayoutParams(
                  maxWidth,
                  ViewGroup.LayoutParams.MATCH_PARENT,
@@ -9091,14 +9295,14 @@ public class StatusBar extends SystemUI implements DemoMode,
          lp.privateFlags |= WindowManager.LayoutParams.PRIVATE_FLAG_NO_MOVE_ANIMATION;
          lp.gravity = Gravity.TOP | Gravity.RIGHT;
          lp.setTitle("AppCircleSidebar");
- 
+
          return lp;
     }
 
 
      public void updatePieControls(boolean reset) {
          ContentResolver resolver = mContext.getContentResolver();
- 
+
          if (reset) {
              Settings.Secure.putIntForUser(resolver,
                      Settings.Secure.PIE_GRAVITY, 0, UserHandle.USER_CURRENT);
@@ -9107,12 +9311,12 @@ public class StatusBar extends SystemUI implements DemoMode,
              getOrientationListener();
              toggleOrientationListener(true);
          }
- 
+
          if (mPieController == null) {
              mPieController = PieController.getInstance();
              mPieController.init(mContext, mWindowManager, this);
          }
- 
+
          int gravity = Settings.Secure.getInt(resolver,
                  Settings.Secure.PIE_GRAVITY, 0);
          mPieController.resetPie(!reset, gravity);
@@ -9130,7 +9334,7 @@ public class StatusBar extends SystemUI implements DemoMode,
             gesturesController = null;
         }
     }
- 
+
      public void toggleOrientationListener(boolean enable) {
          if (mOrientationListener == null) {
              if (!enable) {
@@ -9147,7 +9351,7 @@ public class StatusBar extends SystemUI implements DemoMode,
                  }
              }
          }
- 
+
          if (enable && mPowerManager.isScreenOn()) {
              mOrientationListener.enable();
          } else {

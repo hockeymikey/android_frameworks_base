@@ -49,6 +49,7 @@ import static android.view.WindowManager.LayoutParams.INPUT_FEATURE_NO_INPUT_CHA
 import static android.view.WindowManager.LayoutParams.LAST_APPLICATION_WINDOW;
 import static android.view.WindowManager.LayoutParams.LAST_SUB_WINDOW;
 import static android.view.WindowManager.LayoutParams.PRIVATE_FLAG_COMPATIBLE_WINDOW;
+import static android.view.WindowManager.LayoutParams.PRIVATE_FLAG_HIDE_NON_SYSTEM_OVERLAY_WINDOWS;
 import static android.view.WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY;
 import static android.view.WindowManager.LayoutParams.TYPE_APPLICATION_STARTING;
 import static android.view.WindowManager.LayoutParams.TYPE_DOCK_DIVIDER;
@@ -57,6 +58,7 @@ import static android.view.WindowManager.LayoutParams.TYPE_DREAM;
 import static android.view.WindowManager.LayoutParams.TYPE_INPUT_METHOD;
 import static android.view.WindowManager.LayoutParams.TYPE_INPUT_METHOD_DIALOG;
 import static android.view.WindowManager.LayoutParams.TYPE_NAVIGATION_BAR;
+import static android.view.WindowManager.LayoutParams.TYPE_PRESENTATION;
 import static android.view.WindowManager.LayoutParams.TYPE_PRIVATE_PRESENTATION;
 import static android.view.WindowManager.LayoutParams.TYPE_QS_DIALOG;
 import static android.view.WindowManager.LayoutParams.TYPE_SLIM_RECENTS;
@@ -1257,6 +1259,13 @@ public class WindowManagerService extends IWindowManager.Stub
                 return WindowManagerGlobal.ADD_PERMISSION_DENIED;
             }
 
+            if (type == TYPE_PRESENTATION && !displayContent.getDisplay().isPublicPresentation()) {
+                Slog.w(TAG_WM,
+                        "Attempted to add presentation window to a non-suitable display.  "
+                                + "Aborting.");
+                return WindowManagerGlobal.ADD_INVALID_DISPLAY;
+            }
+
             AppWindowToken atoken = null;
             final boolean hasParent = parentWindow != null;
             // Use existing parent window token for child windows since they go in the same token
@@ -1986,6 +1995,11 @@ public class WindowManagerService extends IWindowManager.Stub
                         && (win.getDisplayId() == DEFAULT_DISPLAY)) {
                     // No move or resize, but the controller checks for title changes as well
                     mAccessibilityController.onSomeWindowResizedOrMovedLocked();
+                }
+
+                if ((flagChanges & PRIVATE_FLAG_HIDE_NON_SYSTEM_OVERLAY_WINDOWS) != 0) {
+                    updateNonSystemOverlayWindowsVisibilityIfNeeded(
+                            win, win.mWinAnimator.getShown());
                 }
             }
 
@@ -3370,6 +3384,14 @@ public class WindowManagerService extends IWindowManager.Stub
         // Pass in the UI context, since ShutdownThread requires it (to show UI).
         ShutdownThread.rebootSafeMode(ActivityThread.currentActivityThread().getSystemUiContext(),
                 confirm);
+    }
+
+    // Called by window manager policy.  Not exposed externally.
+    @Override
+    public void reboot(boolean confirm, String reason) {
+        // Pass in the UI context, since ShutdownThread requires it (to show UI).
+        ShutdownThread.rebootCustom(ActivityThread.currentActivityThread().getSystemUiContext(),
+                reason, confirm);
     }
 
     public void setCurrentProfileIds(final int[] currentProfileIds) {
@@ -6438,6 +6460,11 @@ public class WindowManagerService extends IWindowManager.Stub
     }
 
     @Override
+    public boolean needsNavigationBar() {
+        return mPolicy.needsNavigationBar();
+    }
+
+    @Override
     public void lockNow(Bundle options) {
         mPolicy.lockNow(options);
     }
@@ -7729,7 +7756,8 @@ public class WindowManagerService extends IWindowManager.Stub
     }
 
     void updateNonSystemOverlayWindowsVisibilityIfNeeded(WindowState win, boolean surfaceShown) {
-        if (!win.hideNonSystemOverlayWindowsWhenVisible()) {
+        if (!win.hideNonSystemOverlayWindowsWhenVisible()
+                && !mHidingNonSystemOverlayWindows.contains(win)) {
             return;
         }
         final boolean systemAlertWindowsHidden = !mHidingNonSystemOverlayWindows.isEmpty();

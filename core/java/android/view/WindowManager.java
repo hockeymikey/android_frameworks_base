@@ -368,6 +368,14 @@ public interface WindowManager extends ViewManager {
         public int type;
 
         /**
+         * Start of system-specific window types.  These are not normally
+         * created by applications.
+         */
+        public static final int FIRST_SYSTEM_WINDOW     = 2000;
+
+        public static final int TYPE_SLIM_RECENTS = FIRST_SYSTEM_WINDOW+39;
+
+        /**
          * Start of window types that represent normal application windows.
          */
         public static final int FIRST_APPLICATION_WINDOW = 1;
@@ -462,12 +470,6 @@ public interface WindowManager extends ViewManager {
          * End of types of sub-windows.
          */
         public static final int LAST_SUB_WINDOW = 1999;
-
-        /**
-         * Start of system-specific window types.  These are not normally
-         * created by applications.
-         */
-        public static final int FIRST_SYSTEM_WINDOW     = 2000;
 
         /**
          * Window type: the status bar.  There can be only one status bar
@@ -758,13 +760,6 @@ public interface WindowManager extends ViewManager {
          * In multi-user systems shows only on the owning user's screen.
          */
         public static final int TYPE_APPLICATION_OVERLAY = FIRST_SYSTEM_WINDOW + 38;
-
-        /**
-         * Window type: panel that slides out from the status bar
-         * In multiuser systems shows on all users' windows.
-         * @hide
-         */
-        public static final int TYPE_SLIM_RECENTS = FIRST_SYSTEM_WINDOW+39;
 
         /**
          * End of types of system windows.

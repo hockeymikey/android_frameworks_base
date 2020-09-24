@@ -44,13 +44,18 @@ import com.android.systemui.omni.StatusBarHeaderMachine;
 import com.android.systemui.plugins.ActivityStarter;
 import com.android.systemui.qs.QSDetail.Callback;
 import com.android.systemui.statusbar.SignalClusterView;
+import com.android.systemui.statusbar.phone.StatusBarIconController;
+import com.android.systemui.statusbar.policy.Clock;
 import com.android.systemui.statusbar.policy.DarkIconDispatcher.DarkReceiver;
+import com.android.systemui.tuner.TunerService;
 
 
 public class QuickStatusBarHeader extends FrameLayout implements StatusBarHeaderMachine.IStatusBarHeaderMachineObserver {
     private static final String TAG = "QuickStatusBarHeader";
 
     private ActivityStarter mActivityStarter;
+
+    private Clock mClock;
 
     private QSPanel mQsPanel;
 
@@ -75,6 +80,8 @@ public class QuickStatusBarHeader extends FrameLayout implements StatusBarHeader
         super.onFinishInflate();
         Resources res = getResources();
 
+        mClock = findViewById(R.id.clock);
+
         mHeaderQsPanel = findViewById(R.id.quick_qs_panel);
 
         // RenderThread is doing more harm than good when touching the header (to expand quick
@@ -94,6 +101,9 @@ public class QuickStatusBarHeader extends FrameLayout implements StatusBarHeader
         mBatteryView.setIsQuickSbHeaderOrKeyguard(true);
 
         mActivityStarter = Dependency.get(ActivityStarter.class);
+
+        Dependency.get(TunerService.class).addTunable(this,
+                StatusBarIconController.ICON_BLACKLIST);
 
         mQuickQsPanelScroller = (HorizontalScrollView) findViewById(R.id.quick_qs_panel_scroll);
         mQuickQsPanelScroller.setHorizontalScrollBarEnabled(false);
@@ -278,5 +288,11 @@ public class QuickStatusBarHeader extends FrameLayout implements StatusBarHeader
             layoutParams.topMargin = panelMarginTop;
             mQsPanel.setLayoutParams(layoutParams);
         }
+    }
+
+    @Override
+    public void onTuningChanged(String key, String newValue) {
+        mClock.setClockVisibleByUser(!StatusBarIconController.getIconBlacklist(newValue)
+                .contains("clock"));
     }
 }

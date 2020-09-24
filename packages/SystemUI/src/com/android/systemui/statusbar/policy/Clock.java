@@ -49,7 +49,6 @@ import com.android.systemui.FontSizeUtils;
 import com.android.systemui.R;
 import com.android.systemui.SysUiServiceProvider;
 import com.android.systemui.statusbar.CommandQueue;
-import com.android.systemui.statusbar.phone.StatusBarIconController;
 import com.android.systemui.statusbar.policy.ConfigurationController.ConfigurationListener;
 import com.android.systemui.statusbar.policy.DarkIconDispatcher.DarkReceiver;
 
@@ -66,8 +65,10 @@ public class Clock extends TextView implements DemoMode, CommandQueue.Callbacks,
         DarkReceiver, ConfigurationListener {
 
     public static final String CLOCK_SECONDS = "clock_seconds";
+    public static final String CLOCK_STYLE = "lineagesystem:status_bar_am_pm";
 
     private boolean mClockVisibleByPolicy = true;
+    private boolean mClockVisibleByUser = getVisibility() == View.VISIBLE;
 
     private boolean mAttached;
     private Calendar mCalendar;
@@ -170,6 +171,7 @@ public class Clock extends TextView implements DemoMode, CommandQueue.Callbacks,
 
             getContext().registerReceiverAsUser(mIntentReceiver, UserHandle.ALL, filter,
                     null, Dependency.get(Dependency.TIME_TICK_HANDLER));
+            Dependency.get(TunerService.class).addTunable(this, CLOCK_SECONDS, CLOCK_STYLE);
             SysUiServiceProvider.getComponent(getContext(), CommandQueue.class).addCallbacks(this);
             if (mShowDark) {
                 Dependency.get(DarkIconDispatcher.class).addDarkReceiver(this);
@@ -251,10 +253,22 @@ public class Clock extends TextView implements DemoMode, CommandQueue.Callbacks,
     }
 
     final void updateClock() {
-        if (mDemoMode) return;
+        if (mDemoMode || mCalendar == null) return;
         mCalendar.setTimeInMillis(System.currentTimeMillis());
         setText(getSmallTime());
         setContentDescription(mContentDescriptionFormat.format(mCalendar.getTime()));
+    }
+
+    @Override
+    public void onTuningChanged(String key, String newValue) {
+        if (CLOCK_SECONDS.equals(key)) {
+            mShowSeconds = newValue != null && Integer.parseInt(newValue) != 0;
+            updateShowSeconds();
+        } else if (CLOCK_STYLE.equals(key)) {
+            mAmPmStyle = newValue == null ? AM_PM_STYLE_GONE : Integer.valueOf(newValue);
+            mClockFormatString = ""; // force refresh
+            updateClock();
+        }
     }
 
     @Override

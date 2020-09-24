@@ -1761,6 +1761,9 @@ public class ActivityManagerService extends IActivityManager.Stub
 
     private static String sTheRealBuildSerial = Build.UNKNOWN;
 
+    // Lineage sdk activity related helper
+    private LineageActivityManager mLineageActivityManager;
+
     /**
      * Current global configuration information. Contains general settings for the entire system,
      * also corresponds to the merged configuration of the default display.
@@ -2764,7 +2767,7 @@ public class ActivityManagerService extends IActivityManager.Stub
         GL_ES_VERSION = 0;
         mActivityStarter = null;
         mAppErrors = null;
-        mAppOpsService = mInjector.getAppOpsService(null, null);
+        mAppOpsService = mInjector.getAppOpsService(null, null, this);
         mBatteryStatsService = null;
         mCompatModePackages = null;
         mConstants = null;
@@ -2843,7 +2846,8 @@ public class ActivityManagerService extends IActivityManager.Stub
 
         mProcessStats = new ProcessStatsService(this, new File(systemDir, "procstats"));
 
-        mAppOpsService = mInjector.getAppOpsService(new File(systemDir, "appops.xml"), mHandler);
+        mAppOpsService = mInjector.getAppOpsService(new File(systemDir, "appops.xml"), mHandler,
+                this);
         mAppOpsService.startWatchingMode(AppOpsManager.OP_RUN_IN_BACKGROUND, null,
                 new IAppOpsCallback.Stub() {
                     @Override public void opChanged(int op, int uid, String packageName) {
@@ -3685,7 +3689,8 @@ public class ActivityManagerService extends IActivityManager.Stub
             final int procCount = procs.size();
             for (int i = 0; i < procCount; i++) {
                 final int procUid = procs.keyAt(i);
-                if (UserHandle.isApp(procUid) || !UserHandle.isSameUser(procUid, uid)) {
+                if (UserHandle.isApp(procUid) || !UserHandle.isSameUser(procUid, uid)
+                        || UserHandle.isIsolated(procUid)) {
                     // Don't use an app process or different user process for system component.
                     continue;
                 }
@@ -5082,9 +5087,9 @@ public class ActivityManagerService extends IActivityManager.Stub
                 userId, false, ALLOW_FULL_ONLY, "startActivityInPackage", null);
 
         // TODO: Switch to user app stacks here.
-        return mActivityStarter.startActivityMayWait(null, uid, callingPackage, intent,
-                resolvedType, null, null, resultTo, resultWho, requestCode, startFlags,
-                null, null, null, bOptions, false, userId, inTask, reason);
+        return mActivityStarter.startActivityMayWait(null, uid, ActivityStarter.PID_NULL, uid,
+                callingPackage, intent, resolvedType, null, null, resultTo, resultWho, requestCode,
+                startFlags, null, null, null, bOptions, false, userId, inTask, reason);
     }
 
     @Override
@@ -5104,13 +5109,20 @@ public class ActivityManagerService extends IActivityManager.Stub
     final int startActivitiesInPackage(int uid, String callingPackage,
             Intent[] intents, String[] resolvedTypes, IBinder resultTo,
             Bundle bOptions, int userId) {
+        return startActivitiesInPackage(uid, ActivityStarter.PID_NULL, UserHandle.USER_NULL,
+                callingPackage, intents, resolvedTypes, resultTo, bOptions, userId);
+    }
+
+    final int startActivitiesInPackage(int uid, int realCallingPid, int realCallingUid,
+                                       String callingPackage, Intent[] intents, String[] resolvedTypes,
+                                       IBinder resultTo, Bundle bOptions, int userId) {
 
         final String reason = "startActivityInPackage";
         userId = mUserController.handleIncomingUser(Binder.getCallingPid(), Binder.getCallingUid(),
                 userId, false, ALLOW_FULL_ONLY, reason, null);
         // TODO: Switch to user app stacks here.
-        int ret = mActivityStarter.startActivities(null, uid, callingPackage, intents, resolvedTypes,
-                resultTo, bOptions, userId, reason);
+        int ret = mActivityStarter.startActivities(null, uid, realCallingPid, realCallingUid,
+                callingPackage, intents, resolvedTypes, resultTo, bOptions, userId, reason);
         return ret;
     }
 
@@ -5290,7 +5302,7 @@ public class ActivityManagerService extends IActivityManager.Stub
 
     @Override
     public void crashApplication(int uid, int initialPid, String packageName, int userId,
-            String message) {
+            String message, boolean force) {
         if (checkCallingPermission(android.Manifest.permission.FORCE_STOP_PACKAGES)
                 != PackageManager.PERMISSION_GRANTED) {
             String msg = "Permission Denial: crashApplication() from pid="
@@ -5302,7 +5314,8 @@ public class ActivityManagerService extends IActivityManager.Stub
         }
 
         synchronized(this) {
-            mAppErrors.scheduleAppCrashLocked(uid, initialPid, packageName, userId, message);
+            mAppErrors.scheduleAppCrashLocked(uid, initialPid, packageName, userId,
+                    message, force);
         }
     }
 
@@ -7065,7 +7078,7 @@ public class ActivityManagerService extends IActivityManager.Stub
         }
     }
 
-    private final boolean attachApplicationLocked(IApplicationThread thread,
+    private boolean attachApplicationLocked(@NonNull IApplicationThread thread,
             int pid) {
 
         // Find the application record that is being attached...  either via
@@ -7370,6 +7383,9 @@ public class ActivityManagerService extends IActivityManager.Stub
 
     @Override
     public final void attachApplication(IApplicationThread thread) {
+        if (thread == null) {
+            throw new SecurityException("Invalid application interface");
+        }
         synchronized (this) {
             int callingPid = Binder.getCallingPid();
             final long origId = Binder.clearCallingIdentity();
@@ -8998,10 +9014,17 @@ public class ActivityManagerService extends IActivityManager.Stub
             }
         }
 
-        // If we're extending a persistable grant, then we always need to create
-        // the grant data structure so that take/release APIs work
+        // Figure out the value returned when access is allowed
+        final int allowedResult;
         if ((modeFlags & Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION) != 0) {
-            return targetUid;
+            // If we're extending a persistable grant, then we need to return
+            // "targetUid" so that we always create a grant data structure to
+            // support take/release APIs
+            allowedResult = targetUid;
+        } else {
+            // Otherwise, we can return "-1" to indicate that no grant data
+            // structures need to be created
+            allowedResult = -1;
         }
 
         if (targetUid >= 0) {
@@ -9010,7 +9033,7 @@ public class ActivityManagerService extends IActivityManager.Stub
                 // No need to grant the target this permission.
                 if (DEBUG_URI_PERMISSION) Slog.v(TAG_URI_PERMISSION,
                         "Target " + targetPkg + " already has full permission to " + grantUri);
-                return -1;
+                return allowedResult;
             }
         } else {
             // First...  there is no target package, so can anyone access it?
@@ -9026,7 +9049,7 @@ public class ActivityManagerService extends IActivityManager.Stub
                 }
             }
             if (allowed) {
-                return -1;
+                return allowedResult;
             }
         }
 
@@ -12320,6 +12343,10 @@ public class ActivityManagerService extends IActivityManager.Stub
         RescueParty.onSettingsProviderPublished(mContext);
 
         //mUsageStatsService.monitorPackages();
+
+        // LineageActivityManager depends on settings so we can initialize only
+        // after providers are available.
+        mLineageActivityManager = new LineageActivityManager(mContext);
     }
 
     private void startPersistentApps(int matchFlags) {
@@ -24819,8 +24846,9 @@ public class ActivityManagerService extends IActivityManager.Stub
             return null;
         }
 
-        public AppOpsService getAppOpsService(File file, Handler handler) {
-            return new AppOpsService(file, handler);
+        public AppOpsService getAppOpsService(File file, Handler handler,
+                                              ActivityManagerService service) {
+            return new AppOpsService(file, handler, service);
         }
 
         public Handler getUiHandler(ActivityManagerService service) {
@@ -24873,5 +24901,9 @@ public class ActivityManagerService extends IActivityManager.Stub
                 Binder.restoreCallingIdentity(origId);
             }
         }
+    }
+
+    public boolean shouldForceLongScreen(String packageName) {
+        return mLineageActivityManager.shouldForceLongScreen(packageName);
     }
 }

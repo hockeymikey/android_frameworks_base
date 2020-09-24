@@ -1,5 +1,9 @@
 /*
  * Copyright (C) 2014 The Android Open Source Project
+<<<<<<< HEAD
+=======
+ * Copyright (C) 2017-2018 The LineageOS Project
+>>>>>>> los/lineage-15.1
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,8 +26,8 @@ import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.FrameLayout;
 import android.widget.ImageView;
-import android.widget.LinearLayout;
 import android.widget.ListAdapter;
 import android.widget.ListView;
 
@@ -34,6 +38,7 @@ import com.android.systemui.R;
  * Quick settings common detail list view with line items.
  */
 public class QSDetailItemsList extends LinearLayout {
+public class QSDetailItemsList extends FrameLayout {
     private static final String TAG = "QSDetailItemsList";
 
     private ListView mListView;
