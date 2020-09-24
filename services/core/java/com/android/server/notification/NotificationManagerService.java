@@ -375,6 +375,7 @@ public class NotificationManagerService extends SystemService {
     private long mLastOverRateLogTime;
     private float mMaxPackageEnqueueRate = DEFAULT_MAX_NOTIFICATION_ENQUEUE_RATE;
 
+    private NotificationHistoryManager mHistoryManager;
     private SnoozeHelper mSnoozeHelper;
     private GroupHelper mGroupHelper;
     private boolean mIsTelevision;
