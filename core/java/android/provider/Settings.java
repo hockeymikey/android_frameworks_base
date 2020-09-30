@@ -3485,7 +3485,7 @@ public final class Settings {
 
         private static final Validator TEXT_SHOW_PASSWORD_VALIDATOR = sBooleanValidator;
 
-        private static final Validator SHOW_BATTERY_PERCENT_VALIDATOR = sBooleanValidator;
+        private static final Validator SHOW_BATTERY_PERCENT_VALIDATOR = sNonNegativeIntegerValidator;
 
         public static final String SHOW_GTALK_SERVICE_STATUS =
                 "SHOW_GTALK_SERVICE_STATUS";
