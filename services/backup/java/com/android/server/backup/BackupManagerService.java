@@ -9933,80 +9933,6 @@ if (MORE_DEBUG) Slog.v(TAG, "   + got " + nRead + "; now wanting " + (size - soF
             });
     }
 
-    // Run an initialize operation for the given transport
-    @Override
-    public void initializeTransports(String[] transportNames, IBackupObserver observer) {
-        mContext.enforceCallingPermission(android.Manifest.permission.BACKUP, "initializeTransport");
-        if (MORE_DEBUG) {
-            Slog.v(TAG, "initializeTransports() of " + transportNames);
-        }
-
-        final long oldId = Binder.clearCallingIdentity();
-        try {
-            mWakelock.acquire();
-            mBackupHandler.post(new PerformInitializeTask(transportNames, observer));
-        } finally {
-            Binder.restoreCallingIdentity(oldId);
-        }
-    }
-
-    // Clear the given package's backup data from the current transport
-    @Override
-    public void clearBackupData(String transportName, String packageName) {
-        if (DEBUG) Slog.v(TAG, "clearBackupData() of " + packageName + " on " + transportName);
-        PackageInfo info;
-        try {
-            info = mPackageManager.getPackageInfo(packageName, PackageManager.GET_SIGNATURES);
-        } catch (NameNotFoundException e) {
-            Slog.d(TAG, "No such package '" + packageName + "' - not clearing backup data");
-            return;
-        }
-
-        // If the caller does not hold the BACKUP permission, it can only request a
-        // wipe of its own backed-up data.
-        HashSet<String> apps;
-        if ((mContext.checkPermission(android.Manifest.permission.BACKUP, Binder.getCallingPid(),
-                Binder.getCallingUid())) == PackageManager.PERMISSION_DENIED) {
-            apps = mBackupParticipants.get(Binder.getCallingUid());
-        } else {
-            // a caller with full permission can ask to back up any participating app
-            // !!! TODO: allow data-clear of ANY app?
-            if (MORE_DEBUG) Slog.v(TAG, "Privileged caller, allowing clear of other apps");
-            apps = new HashSet<String>();
-            int N = mBackupParticipants.size();
-            for (int i = 0; i < N; i++) {
-                HashSet<String> s = mBackupParticipants.valueAt(i);
-                if (s != null) {
-                    apps.addAll(s);
-                }
-            }
-        }
-
-        // Is the given app an available participant?
-        if (apps.contains(packageName)) {
-            // found it; fire off the clear request
-            if (MORE_DEBUG) Slog.v(TAG, "Found the app - running clear process");
-            mBackupHandler.removeMessages(MSG_RETRY_CLEAR);
-            synchronized (mQueueLock) {
-                final IBackupTransport transport =
-                        mTransportManager.getTransportBinder(transportName);
-                if (transport == null) {
-                    // transport is currently unavailable -- make sure to retry
-                    Message msg = mBackupHandler.obtainMessage(MSG_RETRY_CLEAR,
-                            new ClearRetryParams(transportName, packageName));
-                    mBackupHandler.sendMessageDelayed(msg, TRANSPORT_RETRY_INTERVAL);
-                    return;
-                }
-                long oldId = Binder.clearCallingIdentity();
-                mWakelock.acquire();
-                Message msg = mBackupHandler.obtainMessage(MSG_RUN_CLEAR,
-                        new ClearParams(transport, info));
-                mBackupHandler.sendMessage(msg);
-                Binder.restoreCallingIdentity(oldId);
-            }
-        }
-    }
-
     // Run a backup pass immediately for any applications that have declared
     // that they have pending updates.
     @Override
@@ -10681,6 +10607,75 @@ if (MORE_DEBUG) Slog.v(TAG, "   + got " + nRead + "; now wanting " + (size - soF
             }
             mAgentConnectLock.notifyAll();
         }
+    }
+
+    @Override
+    public CharSequence getDataManagementLabelForUser(int userId, String transport)
+            throws RemoteException {
+        return isUserReadyForBackup(userId) ? getDataManagementLabel(userId, transport)
+                : null;
+    }
+
+    // ---------------------------------------------
+    // TRANSPORT OPERATIONS
+    // ---------------------------------------------
+
+    @Override
+    public void initializeTransportsForUser(
+            int userId, String[] transportNames, IBackupObserver observer) throws RemoteException {
+        if (isUserReadyForBackup(userId)) {
+            initializeTransports(userId, transportNames, observer);
+        }
+    }
+
+    /** Run an initialize operation for the given transports {@code transportNames}. */
+    public void initializeTransports(
+            @UserIdInt int userId, String[] transportNames, IBackupObserver observer) {
+        UserBackupManagerService userBackupManagerService =
+                getServiceForUserIfCallerHasPermission(userId, "initializeTransports()");
+
+        if (userBackupManagerService != null) {
+            userBackupManagerService.initializeTransports(transportNames, observer);
+        }
+    }
+
+    @Override
+    public void clearBackupDataForUser(int userId, String transportName, String packageName)
+            throws RemoteException {
+        if (isUserReadyForBackup(userId)) {
+            clearBackupData(userId, transportName, packageName);
+        }
+    }
+
+    /**
+     * Clear the given package {@code packageName}'s backup data from the transport {@code
+     * transportName}.
+     */
+    public void clearBackupData(@UserIdInt int userId, String transportName, String packageName) {
+        UserBackupManagerService userBackupManagerService =
+                getServiceForUserIfCallerHasPermission(userId, "clearBackupData()");
+
+        if (userBackupManagerService != null) {
+            userBackupManagerService.clearBackupData(transportName, packageName);
+        }
+    }
+
+    @Override
+    public void clearBackupData(String transportName, String packageName)
+            throws RemoteException {
+        clearBackupDataForUser(binderGetCallingUserId(), transportName, packageName);
+    }
+
+    /**
+     * This method should not perform any I/O (e.g. do not call isBackupActivatedForUser),
+     * it's used in multiple places where I/O waits would cause system lock-ups.
+     * @param userId User id for which this operation should be performed.
+     * @return true if the user is ready for backup and false otherwise.
+     */
+    @Override
+    public boolean isUserReadyForBackup(int userId) {
+        return mUserServices.get(UserHandle.USER_SYSTEM) != null
+                && mUserServices.get(userId) != null;
     }
 
     // Callback: a backup agent has failed to come up, or has unexpectedly quit.

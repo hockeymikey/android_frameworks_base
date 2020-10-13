@@ -649,6 +649,182 @@ public class BackupManager {
         }
     }
 
+    /**
+     * Returns a {@link UserHandle} for the user that has {@code ancestralSerialNumber} as the
+     * serial number of the its ancestral work profile or {@code null} if there is none.
+     *
+     * <p> The ancestral serial number will have a corresponding {@link UserHandle} if the device
+     * has a work profile that was restored from another work profile with serial number
+     * {@code ancestralSerialNumber}.
+     *
+     * @see android.os.UserManager#getSerialNumberForUser(UserHandle)
+     */
+    @Nullable
+    public UserHandle getUserForAncestralSerialNumber(long ancestralSerialNumber) {
+        checkServiceBinder();
+        if (sService != null) {
+            try {
+                return sService.getUserForAncestralSerialNumber(ancestralSerialNumber);
+            } catch (RemoteException e) {
+                Log.e(TAG, "getUserForAncestralSerialNumber() couldn't connect");
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Sets the ancestral work profile for the calling user.
+     *
+     * <p> The ancestral work profile corresponds to the profile that was used to restore to the
+     * callers profile.
+     * @hide
+     */
+    @SystemApi
+    @RequiresPermission(android.Manifest.permission.BACKUP)
+    public void setAncestralSerialNumber(long ancestralSerialNumber) {
+        checkServiceBinder();
+        if (sService != null) {
+            try {
+                sService.setAncestralSerialNumber(ancestralSerialNumber);
+            } catch (RemoteException e) {
+                Log.e(TAG, "setAncestralSerialNumber() couldn't connect");
+            }
+        }
+    }
+
+    /**
+     * Returns an {@link Intent} for the specified transport's configuration UI.
+     * This value is set by {@link #updateTransportAttributes(ComponentName, String, Intent, String,
+     * Intent, CharSequence)}.
+     * @param transportName The name of the registered transport.
+     * @hide
+     */
+    @SystemApi
+    @TestApi
+    @RequiresPermission(android.Manifest.permission.BACKUP)
+    public Intent getConfigurationIntent(String transportName) {
+        checkServiceBinder();
+        if (sService != null) {
+            try {
+                return sService.getConfigurationIntentForUser(mContext.getUserId(), transportName);
+            } catch (RemoteException e) {
+                Log.e(TAG, "getConfigurationIntent() couldn't connect");
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Returns a {@link String} describing where the specified transport is sending data.
+     * This value is set by {@link #updateTransportAttributes(ComponentName, String, Intent, String,
+     * Intent, CharSequence)}.
+     * @param transportName The name of the registered transport.
+     * @hide
+     */
+    @SystemApi
+    @TestApi
+    @RequiresPermission(android.Manifest.permission.BACKUP)
+    public String getDestinationString(String transportName) {
+        checkServiceBinder();
+        if (sService != null) {
+            try {
+                return sService.getDestinationStringForUser(mContext.getUserId(), transportName);
+            } catch (RemoteException e) {
+                Log.e(TAG, "getDestinationString() couldn't connect");
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Returns an {@link Intent} for the specified transport's data management UI.
+     * This value is set by {@link #updateTransportAttributes(ComponentName, String, Intent, String,
+     * Intent, CharSequence)}.
+     * @param transportName The name of the registered transport.
+     * @hide
+     */
+    @SystemApi
+    @TestApi
+    @RequiresPermission(android.Manifest.permission.BACKUP)
+    public Intent getDataManagementIntent(String transportName) {
+        checkServiceBinder();
+        if (sService != null) {
+            try {
+                return sService.getDataManagementIntentForUser(mContext.getUserId(), transportName);
+            } catch (RemoteException e) {
+                Log.e(TAG, "getDataManagementIntent() couldn't connect");
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Returns a {@link String} describing what the specified transport's data management intent is
+     * used for. This value is set by {@link #updateTransportAttributes(ComponentName, String,
+     * Intent, String, Intent, CharSequence)}.
+     *
+     * @param transportName The name of the registered transport.
+     * @deprecated Since Android Q, please use the variant {@link
+     *     #getDataManagementIntentLabel(String)} instead.
+     * @hide
+     */
+    @Deprecated
+    @SystemApi
+    @TestApi
+    @RequiresPermission(android.Manifest.permission.BACKUP)
+    @Nullable
+    public String getDataManagementLabel(@NonNull String transportName) {
+        CharSequence label = getDataManagementIntentLabel(transportName);
+        return label == null ? null : label.toString();
+    }
+
+    /**
+     * Returns a {@link CharSequence} describing what the specified transport's data management
+     * intent is used for. This value is set by {@link #updateTransportAttributes(ComponentName,
+     * String, Intent, String, Intent, CharSequence)}.
+     *
+     * @param transportName The name of the registered transport.
+     * @hide
+     */
+    @SystemApi
+    @TestApi
+    @RequiresPermission(android.Manifest.permission.BACKUP)
+    @Nullable
+    public CharSequence getDataManagementIntentLabel(@NonNull String transportName) {
+        checkServiceBinder();
+        if (sService != null) {
+            try {
+                return sService.getDataManagementLabelForUser(mContext.getUserId(), transportName);
+            } catch (RemoteException e) {
+                Log.e(TAG, "getDataManagementIntentLabel() couldn't connect");
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Excludes keys from KV restore for a given package. The corresponding data will be excluded
+     * from the data set available the backup agent during restore. However,  final list  of keys
+     * that have been excluded will be passed to the agent to make it aware of the exclusions.
+     *
+     * @param packageName The name of the package for which to exclude keys.
+     * @param keys The list of keys to exclude.
+     *
+     * @hide
+     */
+    @SystemApi
+    @RequiresPermission(android.Manifest.permission.BACKUP)
+    public void excludeKeysFromRestore(@NonNull String packageName, @NonNull List<String> keys) {
+        checkServiceBinder();
+        if (sService != null) {
+            try {
+                sService.excludeKeysFromRestore(packageName, keys);
+            } catch (RemoteException e) {
+                Log.e(TAG, "excludeKeysFromRestore() couldn't connect");
+            }
+        }
+    }
+    
     /*
      * We wrap incoming binder calls with a private class implementation that
      * redirects them into main-thread actions.  This serializes the backup

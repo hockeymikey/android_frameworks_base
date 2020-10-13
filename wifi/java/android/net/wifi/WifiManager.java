@@ -989,7 +989,7 @@ public class WifiManager {
     public List<WifiConfiguration> getPrivilegedConfiguredNetworks() {
         try {
             ParceledListSlice<WifiConfiguration> parceledList =
-                mService.getPrivilegedConfiguredNetworks();
+                    mService.getPrivilegedConfiguredNetworks();
             if (parceledList == null) {
                 return Collections.emptyList();
             }
@@ -997,6 +997,27 @@ public class WifiManager {
         } catch (RemoteException e) {
             throw e.rethrowFromSystemServer();
         }
+    }
+
+    /** @hide */
+    @SystemApi
+    @RequiresPermission(android.Manifest.permission.READ_WIFI_CREDENTIAL)
+    public String getWifiPassword(int networkId) {
+        String pwd;
+        for (WifiConfiguration config : getPrivilegedConfiguredNetworks()) {
+            if (config.networkId == networkId) {
+                if (config.allowedKeyManagement.get(KeyMgmt.WPA_PSK)) {
+                    pwd = config.preSharedKey;
+                } else {
+                    pwd = config.wepKeys[config.wepTxKeyIndex];
+                }
+
+                if (pwd != null) {
+                    return pwd.replaceAll("^\"|\"$", "");
+                }
+            }
+        }
+        return null;
     }
 
     /**

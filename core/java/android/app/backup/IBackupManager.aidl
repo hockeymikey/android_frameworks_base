@@ -57,6 +57,20 @@ interface IBackupManager {
     void clearBackupData(String transportName, String packageName);
 
     /**
+     * Erase all backed-up data for the given package from the given storage
+     * destination.
+     *
+     * Any application can invoke this method for its own package, but
+     * only callers who hold the android.permission.BACKUP permission
+     * may invoke it for arbitrary packages.
+     * If {@code userId} is different from the calling user id, then the caller must hold the
+     * android.permission.INTERACT_ACROSS_USERS_FULL permission.
+     *
+     * @param userId User id for which backup data should be erased.
+     */
+    void clearBackupDataForUser(int userId, String transportName, String packageName);
+
+    /**
      * Run an initialize operation on the given transports.  This will wipe all data from
      * the backing data store and establish a clean starting point for all backup
      * operations.
@@ -64,6 +78,20 @@ interface IBackupManager {
      * <p>Callers must hold the android.permission.BACKUP permission to use this method.
      */
     void initializeTransports(in String[] transportNames, IBackupObserver observer);
+
+    /**
+     * Run an initialize operation on the given transports.  This will wipe all data from
+     * the backing data store and establish a clean starting point for all backup
+     * operations.
+     *
+     * <p>Callers must hold the android.permission.BACKUP permission to use this method.
+     * If {@code userId} is different from the calling user id, then the caller must hold the
+     * android.permission.INTERACT_ACROSS_USERS_FULL permission.
+     *
+     * @param userId User id for which the given transports should be initialized.
+     */
+    void initializeTransportsForUser(int userId, in String[] transportNames,
+        IBackupObserver observer);
 
     /**
      * Notifies the Backup Manager Service that an agent has become available.  This
@@ -280,6 +308,24 @@ interface IBackupManager {
      *   return {@code null} here.
      */
     Intent getConfigurationIntent(String transport);
+
+    /**
+     * Get the manage-data menu label, if any, from the given transport.  Callers must
+     * hold the android.permission.BACKUP permission in order to use this method.
+     * If {@code userId} is different from the calling user id, then the caller must hold the
+     * android.permission.INTERACT_ACROSS_USERS_FULL permission.
+     *
+     * @param userId User id for which the manage-data menu label should be reported.
+     */
+    CharSequence getDataManagementLabelForUser(int userId, String transport);
+
+    /**
+    * Checks if the user is ready for backup or not.
+    * @param userId User id for which this operation should be performed.
+    */
+    boolean isUserReadyForBackup(int userId);
+
+
 
     /**
      * Get the destination string supplied by the given transport.  Callers must
