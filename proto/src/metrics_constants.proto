@@ -4618,6 +4618,11 @@ message MetricsEvent {
     // OS: P
     ANOMALY_TYPE_UNOPTIMIZED_BT = 1237;
 
+    // OPEN: Settings -> System -> Backup
+    // CATEGORY: SETTINGS
+    // OS: O
+    BACKUP_SETTINGS = 1238;
+
     // Add new aosp constants above this line.
     // END OF AOSP CONSTANTS
 
