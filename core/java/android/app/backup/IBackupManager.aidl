@@ -490,25 +490,6 @@ interface IBackupManager {
      */
     void selectBackupTransportAsyncForUser(int userId, in ComponentName transport,
         ISelectBackupTransportCallback listener);
-    /**
-     * Get the configuration Intent, if any, from the given transport.  Callers must
-     * hold the android.permission.BACKUP permission in order to use this method.
-     * If {@code userId} is different from the calling user id, then the caller must hold the
-     * android.permission.INTERACT_ACROSS_USERS_FULL permission.
-     *
-     * @param userId User id for which the configuration Intent should be reported.
-     * @param transport The name of the transport to query.
-     * @return An Intent to use with Activity#startActivity() to bring up the configuration
-     *   UI supplied by the transport.  If the transport has no configuration UI, it should
-     *   return {@code null} here.
-     */
-    Intent getConfigurationIntentForUser(int userId, String transport);
-    /**
-     * {@link android.app.backup.IBackupManager.getConfigurationIntentForUser} for the calling user
-     * id.
-     */
-    Intent getConfigurationIntent(String transport);
-
 
     /**
      * Returns a {@link UserHandle} for the user that has {@code ancestralSerialNumber} as the serial
