@@ -32,6 +32,7 @@ import android.net.NetworkCapabilities;
 import android.net.NetworkRequest;
 import android.net.wifi.hotspot2.OsuProvider;
 import android.net.wifi.hotspot2.PasspointConfiguration;
+import android.net.wifi.WifiConfiguration.KeyMgmt;
 import android.os.Binder;
 import android.os.Build;
 import android.os.Handler;

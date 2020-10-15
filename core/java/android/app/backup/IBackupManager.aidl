@@ -340,6 +340,16 @@ interface IBackupManager {
     /**
      * Get the manage-data UI intent, if any, from the given transport.  Callers must
      * hold the android.permission.BACKUP permission in order to use this method.
+     * If {@code userId} is different from the calling user id, then the caller must hold the
+     * android.permission.INTERACT_ACROSS_USERS_FULL permission.
+     *
+     * @param userId User id for which the manage-data UI intent should be reported.
+     */
+    Intent getDataManagementIntentForUser(int userId, String transport);
+
+    /**
+     * Get the manage-data UI intent, if any, from the given transport.  Callers must
+     * hold the android.permission.BACKUP permission in order to use this method.
      */
     Intent getDataManagementIntent(String transport);
 
