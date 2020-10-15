@@ -325,6 +325,19 @@ interface IBackupManager {
     Intent getConfigurationIntent(String transport);
 
     /**
+     * Get the destination string supplied by the given transport.  Callers must
+     * hold the android.permission.BACKUP permission in order to use this method.
+     * If {@code userId} is different from the calling user id, then the caller must hold the
+     * android.permission.INTERACT_ACROSS_USERS_FULL permission.
+     *
+     * @param userId User id for which the transport destination string should be reported.
+     * @param transport The name of the transport to query.
+     * @return A string describing the current backup destination.  This string is used
+     *   verbatim by the Settings UI as the summary text of the "configure..." item.
+     */
+    String getDestinationStringForUser(int userId, String transport);
+
+    /**
      * Get the manage-data menu label, if any, from the given transport.  Callers must
      * hold the android.permission.BACKUP permission in order to use this method.
      * If {@code userId} is different from the calling user id, then the caller must hold the
@@ -339,8 +352,6 @@ interface IBackupManager {
     * @param userId User id for which this operation should be performed.
     */
     boolean isUserReadyForBackup(int userId);
-
-
 
     /**
      * Get the destination string supplied by the given transport.  Callers must
