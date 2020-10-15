@@ -615,7 +615,7 @@ message SettingsOperationProto {
 message Backup {
     option (android.msg_privacy).dest = DEST_EXPLICIT;
 
-    optional SettingProto backup_agent_timeout_parameters = 1;
+    SettingProto backup_agent_timeout_parameters = 1;
     reserved 2; // Used to be backup_multi_user_enabled which was never used
 }
 Backup backup = 146;
