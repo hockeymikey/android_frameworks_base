@@ -301,6 +301,20 @@ interface IBackupManager {
     /**
      * Get the configuration Intent, if any, from the given transport.  Callers must
      * hold the android.permission.BACKUP permission in order to use this method.
+     * If {@code userId} is different from the calling user id, then the caller must hold the
+     * android.permission.INTERACT_ACROSS_USERS_FULL permission.
+     *
+     * @param userId User id for which the configuration Intent should be reported.
+     * @param transport The name of the transport to query.
+     * @return An Intent to use with Activity#startActivity() to bring up the configuration
+     *   UI supplied by the transport.  If the transport has no configuration UI, it should
+     *   return {@code null} here.
+     */
+    Intent getConfigurationIntentForUser(int userId, String transport);
+
+    /**
+     * Get the configuration Intent, if any, from the given transport.  Callers must
+     * hold the android.permission.BACKUP permission in order to use this method.
      *
      * @param transport The name of the transport to query.
      * @return An Intent to use with Activity#startActivity() to bring up the configuration
@@ -460,5 +474,64 @@ interface IBackupManager {
      * Cancel all running backups. After this call returns, no currently running backups will
      * interact with the selected transport.
      */
-    void cancelBackups();
+    void cancelBackups();    /**
+     * Specify the current backup transport and get notified when the transport is ready to be used.
+     * This method is async because BackupManager might need to bind to the specified transport
+     * which is in a separate process.
+     *
+     * <p>Callers must hold the android.permission.BACKUP permission to use this method.
+     * If {@code userId} is different from the calling user id, then the caller must hold the
+     * android.permission.INTERACT_ACROSS_USERS_FULL permission.
+     *
+     * @param userId User id for which the transport should be selected.
+     * @param transport ComponentName of the service hosting the transport. This is different from
+     *                  the transport's name that is returned by {@link BackupTransport#name()}.
+     * @param listener A listener object to get a callback on the transport being selected.
+     */
+    void selectBackupTransportAsyncForUser(int userId, in ComponentName transport,
+        ISelectBackupTransportCallback listener);
+    /**
+     * Get the configuration Intent, if any, from the given transport.  Callers must
+     * hold the android.permission.BACKUP permission in order to use this method.
+     * If {@code userId} is different from the calling user id, then the caller must hold the
+     * android.permission.INTERACT_ACROSS_USERS_FULL permission.
+     *
+     * @param userId User id for which the configuration Intent should be reported.
+     * @param transport The name of the transport to query.
+     * @return An Intent to use with Activity#startActivity() to bring up the configuration
+     *   UI supplied by the transport.  If the transport has no configuration UI, it should
+     *   return {@code null} here.
+     */
+    Intent getConfigurationIntentForUser(int userId, String transport);
+    /**
+     * {@link android.app.backup.IBackupManager.getConfigurationIntentForUser} for the calling user
+     * id.
+     */
+    Intent getConfigurationIntent(String transport);
+
+
+    /**
+     * Returns a {@link UserHandle} for the user that has {@code ancestralSerialNumber} as the serial
+     * number of the it's ancestral work profile.
+     *
+     * <p> The ancestral work profile is set by {@link #setAncestralSerialNumber(long)}
+     * and it corresponds to the profile that was used to restore to the callers profile.
+     */
+    UserHandle getUserForAncestralSerialNumber(in long ancestralSerialNumber);
+    /**
+     * Sets the ancestral work profile for the calling user.
+     *
+     * <p> The ancestral work profile corresponds to the profile that was used to restore to the
+     * callers profile.
+     *
+     * <p>Callers must hold the android.permission.BACKUP permission to use this method.
+     */
+    void setAncestralSerialNumber(in long ancestralSerialNumber);
+
+    /**
+     * Excludes keys from KV restore for a given package. The corresponding data will be excluded
+     * from the data set available the backup agent during restore. However,  final list  of keys
+     * that have been excluded will be passed to the agent to make it aware of the exclusions.
+     */
+    void excludeKeysFromRestore(String packageName, in List<String> keys);
 }

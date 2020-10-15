@@ -11233,6 +11233,62 @@ if (MORE_DEBUG) Slog.v(TAG, "   + got " + nRead + "; now wanting " + (size - soF
         }
     }
 
+    /**
+     * Returns a {@link UserHandle} for the user that has {@code ancestralSerialNumber} as the
+     * serial number of its ancestral work profile or null if there is no {@link
+     * UserBackupManagerService} associated with that user.
+     *
+     * <p> The ancestral work profile is set by {@link #setAncestralSerialNumber(long)}
+     * and it corresponds to the profile that was used to restore to the callers profile.
+     */
+    @Override
+    @Nullable
+    public UserHandle getUserForAncestralSerialNumber(long ancestralSerialNumber) {
+        if (mGlobalDisable) {
+            return null;
+        }
+        int callingUserId = Binder.getCallingUserHandle().getIdentifier();
+        long oldId = Binder.clearCallingIdentity();
+        final int[] userIds;
+        try {
+            userIds = getUserManager().getProfileIds(callingUserId, false);
+        } finally {
+            Binder.restoreCallingIdentity(oldId);
+        }
+
+        for (int userId : userIds) {
+            UserBackupManagerService userBackupManagerService = mUserServices.get(userId);
+            if (userBackupManagerService != null) {
+                if (userBackupManagerService.getAncestralSerialNumber() == ancestralSerialNumber) {
+                    return UserHandle.of(userId);
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Sets the ancestral work profile for the calling user.
+     *
+     * <p> The ancestral work profile corresponds to the profile that was used to restore to the
+     * callers profile.
+     */
+    @Override
+    public void setAncestralSerialNumber(long ancestralSerialNumber) {
+        if (mGlobalDisable) {
+            return;
+        }
+        UserBackupManagerService userBackupManagerService =
+                getServiceForUserIfCallerHasPermission(
+                        Binder.getCallingUserHandle().getIdentifier(),
+                        "setAncestralSerialNumber()");
+
+        if (userBackupManagerService != null) {
+            userBackupManagerService.setAncestralSerialNumber(ancestralSerialNumber);
+        }
+    }
+
     @Override
     public void dump(FileDescriptor fd, PrintWriter pw, String[] args) {
         if (!DumpUtils.checkDumpAndUsageStatsPermission(mContext, TAG, pw)) return;
