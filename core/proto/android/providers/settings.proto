@@ -618,4 +618,4 @@ message Backup {
     optional SettingProto backup_agent_timeout_parameters = 1;
     reserved 2; // Used to be backup_multi_user_enabled which was never used
 }
-optional Backup backup = 146;
+Backup backup = 146;
